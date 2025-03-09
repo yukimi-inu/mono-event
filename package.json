@@ -3,21 +3,39 @@
   "version": "0.0.1",
   "description": "A minimal, type-safe single-event management library for JavaScript/TypeScript",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
+  "main": "dist/index.min.js",
+  "module": "dist/index.min.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.min.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "sideEffects": false,
   "scripts": {
-    "build": "tsc",
+    "build": "rollup -c",
+    "build:dev": "rollup -c",
+    "build:prod": "NODE_ENV=production rollup -c",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build && npm run test",
+    "prepublishOnly": "npm run clean && npm run build:prod && npm run test",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --apply ."
   },
-  "keywords": ["event", "events", "typescript", "javascript", "pubsub", "emitter"],
+  "keywords": [
+    "event",
+    "events",
+    "typescript",
+    "javascript",
+    "pubsub",
+    "emitter"
+  ],
   "author": "yukimi-inu",
   "license": "MIT",
   "repository": {
@@ -33,7 +51,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "eventemitter3": "^5.0.1",
+    "mitt": "^3.0.1",
+    "nanoevents": "^9.1.0",
+    "rollup": "^4.35.0",
+    "tslib": "^2.8.1",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "rxjs": "^7.8.2"
+  },
+  "dependencies": {
   }
 }

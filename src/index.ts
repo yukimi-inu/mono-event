@@ -5,15 +5,18 @@
 
 // Export types
 export {
-  EventHandler,
-  AsyncEventHandler,
+  // Common types
   EventOptions,
   AsyncEventOptions,
-  MonoEvent,
-  MonoAsyncEvent,
-  MonoRestrictedEvent,
-  MonoRestrictedAsyncEvent,
   Caller,
+  // Sync types
+  EventHandler,
+  MonoEvent,
+  MonoRestrictedEvent,
+  // Async types
+  AsyncEventHandler,
+  MonoAsyncEvent,
+  MonoRestrictedAsyncEvent,
 } from './types';
 
 // Export functions

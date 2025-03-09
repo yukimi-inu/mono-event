@@ -31,6 +31,23 @@ export interface EventOptions {
 }
 
 /**
+ * Options for event emitter
+ */
+export interface EmitterOptions {
+  /**
+   * Whether to continue execution when a handler throws an error
+   * @default false
+   */
+  continueOnError?: boolean;
+
+  /**
+   * Whether to log error information when handlers throw
+   * @default false
+   */
+  logErrors?: boolean;
+}
+
+/**
  * Options for asynchronous events
  */
 export interface AsyncEventOptions {
@@ -39,6 +56,18 @@ export interface AsyncEventOptions {
    * @default false
    */
   parallel?: boolean;
+
+  /**
+   * Whether to continue execution when a handler throws an error
+   * @default false
+   */
+  continueOnError?: boolean;
+
+  /**
+   * Whether to log error information when handlers throw
+   * @default false
+   */
+  logErrors?: boolean;
 }
 
 /**

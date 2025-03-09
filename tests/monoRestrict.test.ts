@@ -140,7 +140,7 @@ describe('monoRestrict', () => {
     });
 
     it('should handle errors in handlers without affecting other handlers', () => {
-      const { event, emit } = monoRestrict<string>();
+      const { event, emit } = monoRestrict<string>({ continueOnError: true, logErrors: true });
       const errorHandler = vi.fn().mockImplementation(() => {
         throw new Error('Handler error');
       });
