@@ -1,0 +1,6 @@
+{
+  "name": "mono-event",
+  "version": "0.0.1",
+  "module": "./dist/index.min.js",
+  "type": "module"
+}

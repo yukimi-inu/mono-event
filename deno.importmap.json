@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "mono-event": "./dist/index.min.js",
+    "mono-event/": "./dist/"
+  }
+}

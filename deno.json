@@ -1,0 +1,10 @@
+{
+  "name": "mono-event",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./dist/index.min.js"
+  },
+  "imports": {
+    "mono-event": "./dist/index.min.js"
+  }
+}

@@ -12,7 +12,9 @@
   "exports": {
     ".": {
       "import": "./dist/index.min.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "bun": "./dist/index.min.js",
+      "deno": "./dist/index.min.js"
     }
   },
   "sideEffects": false,
@@ -24,6 +26,8 @@
     "prepublishOnly": "npm run clean && npm run build:prod && npm run test",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:bun": "bun test bun.test.ts",
+    "test:deno": "deno test deno.test.ts --import-map=deno.importmap.json",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --apply ."

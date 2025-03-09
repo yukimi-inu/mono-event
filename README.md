@@ -23,12 +23,30 @@
 
 ## Installation
 
+### Node.js
+
 You can install mono-event via npm or yarn:
 
 ```bash
 npm install mono-event
 # or
 yarn add mono-event
+```
+
+### Bun
+
+```bash
+bun add mono-event
+```
+
+### Deno
+
+```ts
+// Import from npm
+import { mono } from "npm:mono-event";
+
+// Or import from URL
+import { mono } from "https://esm.sh/mono-event";
 ```
 
 ## Usage
@@ -265,6 +283,34 @@ npm run build
 
 # Run benchmarks
 node docs/performance/run-benchmark.js
+```
+
+## Testing with Bun and Deno
+
+This library is fully compatible with Bun and Deno. You can run the tests in each environment:
+
+### Bun
+
+```bash
+# Install Bun if you haven't already
+curl -fsSL https://bun.sh/install | bash
+
+# Run tests with Bun
+npm run test:bun
+# or directly
+bun test bun.test.ts
+```
+
+### Deno
+
+```bash
+# Install Deno if you haven't already
+curl -fsSL https://deno.land/install.sh | sh
+
+# Run tests with Deno
+npm run test:deno
+# or directly
+deno test deno.test.ts --import-map=deno.importmap.json
 ```
 
 ## Credits
