@@ -1,0 +1,39 @@
+{
+  "name": "mono-event",
+  "version": "0.0.1",
+  "description": "A minimal, type-safe single-event management library for JavaScript/TypeScript",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build && npm run test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --apply ."
+  },
+  "keywords": ["event", "events", "typescript", "javascript", "pubsub", "emitter"],
+  "author": "Yukimi Inu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yukimi-inu/mono-event.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yukimi-inu/mono-event/issues"
+  },
+  "homepage": "https://github.com/yukimi-inu/mono-event#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

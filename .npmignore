@@ -1,0 +1,22 @@
+# Source files
+src/
+
+# Tests
+tests/
+*.test.ts
+vitest.config.ts
+
+# Configuration files
+.github/
+.vscode/
+.editorconfig
+.gitignore
+.npmignore
+biome.json
+tsconfig.json
+
+# Development files
+node_modules/
+coverage/
+.DS_Store
+*.log
