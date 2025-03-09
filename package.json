@@ -18,7 +18,7 @@
     "check": "biome check --apply ."
   },
   "keywords": ["event", "events", "typescript", "javascript", "pubsub", "emitter"],
-  "author": "Yukimi Inu",
+  "author": "yukimi-inu",
   "license": "MIT",
   "repository": {
     "type": "git",
