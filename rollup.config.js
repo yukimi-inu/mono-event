@@ -31,10 +31,27 @@ export default {
       sourcemap: false,
       plugins: [terser({
         format: {
-          comments: false
+          comments: false,
+          ecma: 2020,
+          wrap_func_args: false
         },
         compress: {
-          drop_console: true
+          drop_console: true,
+          drop_debugger: true,
+          pure_getters: true,
+          keep_infinity: true,
+          passes: 3,
+          unsafe: true,
+          unsafe_arrows: true,
+          unsafe_comps: true,
+          unsafe_methods: true,
+          unsafe_proto: true,
+          unsafe_undefined: true
+        },
+        mangle: {
+          properties: {
+            regex: /^_/
+          }
         }
       })],
     }

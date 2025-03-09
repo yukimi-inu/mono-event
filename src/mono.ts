@@ -2,155 +2,57 @@
  * Synchronous event implementation
  */
 
-import type {Caller, EmitterOptions, EventOptions} from './types';
-import type {EventHandler, MonoEvent} from './types/sync';
+import type { EmitterOptions } from './types';
+import type { EventHandler, MonoEvent } from './types/sync';
+import type { ListenerInfo } from './utils';
+import {
+  parseAddArgs,
+  createUnsubscribe,
+  parseRemoveArgs,
+  findAndRemove,
+  executeHandler
+} from './utils';
 
 /**
  * Creates a new synchronous event
- * @param options Options for the event emitter
- * @returns An event object with add, remove, removeAll, and emit methods
- * @example
- * ```ts
- * const event = mono<string>();
- *
- * // Register a listener (returns an unsubscribe function)
- * const unsubscribe = event.add((msg) => {
- *   console.log("Received:", msg);
- * });
- *
- * // Or register with a caller context
- * class MyClass {
- *   handleEvent(msg: string) {
- *     console.log("MyClass received:", msg);
- *   }
- * }
- * const instance = new MyClass();
- * event.add(instance, instance.handleEvent);
- *
- * // Register a one-time listener
- * event.add((msg) => {
- *   console.log("One-time:", msg);
- * }, { once: true });
- *
- * // Emit an event
- * event.emit("Hello, world!");
- *
- * // Unsubscribe when needed
- * unsubscribe();
- * // Or remove by reference
- * event.remove(instance, instance.handleEvent);
- *
- * // Remove all listeners
- * event.removeAll();
- * ```
  */
 export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
-  // Set options
-  const {continueOnError = false, logErrors = false} = options;
+  // Set options with defaults
+  const { continueOnError = false, logErrors = false } = options;
 
   // Use simple array for best performance
-  const listeners: Array<{
-    handler: EventHandler<T>;
-    caller: Caller | null;
-    once: boolean;
-  }> = [];
+  const listeners: Array<ListenerInfo<EventHandler<T>>> = [];
   
   // Store once listeners separately for faster access during emit
-  const onceListeners: Array<{
-    handler: EventHandler<T>;
-    caller: Caller | null;
-  }> = [];
+  const onceListeners: Array<ListenerInfo<EventHandler<T>>> = [];
   
-  // Return object directly to avoid spread operator and function calls
-  return {
+  // Create event object with optimized methods
+  const eventObj = {
     add(...args: unknown[]): () => void {
-      let handler: EventHandler<T>;
-      let caller: Caller | null = null;
-      let options: EventOptions = {};
-
-      // Parse arguments inline
-      if (typeof args[0] === 'function') {
-        handler = args[0] as EventHandler<T>;
-        options = (args[1] as EventOptions) || {};
-      } else {
-        caller = args[0] as Caller;
-        handler = args[1] as EventHandler<T>;
-        options = (args[2] as EventOptions) || {};
-      }
-
-      // Check if it's a once listener
-      const isOnce = !!options.once;
+      const parsed = parseAddArgs<EventHandler<T>>(args);
+      const isOnce = !!parsed.options.once;
       
-      if (isOnce) {
-        // Store once listener separately
-        const onceListener = {
-          handler,
-          caller
-        };
-        onceListeners.push(onceListener);
-        
-        // Return unsubscribe function
-        return () => {
-          const index = onceListeners.indexOf(onceListener);
-          if (index !== -1) {
-            onceListeners.splice(index, 1);
-          }
-        };
-      }
-      
-      // Store regular listener
-      const listenerInfo = {
-        handler,
-        caller,
-        once: false
+      // Create listener info object
+      const listenerInfo: ListenerInfo<EventHandler<T>> = {
+        handler: parsed.handler,
+        caller: parsed.caller,
+        once: isOnce
       };
       
-      listeners.push(listenerInfo);
+      // Store in appropriate array
+      const targetArray = isOnce ? onceListeners : listeners;
+      targetArray.push(listenerInfo);
       
       // Return unsubscribe function
-      return () => {
-        const index = listeners.indexOf(listenerInfo);
-        if (index !== -1) {
-          listeners.splice(index, 1);
-        }
-      };
+      return createUnsubscribe(targetArray, listenerInfo);
     },
 
     remove(...args: unknown[]): boolean {
-      let handler: EventHandler<T>;
-      let caller: Caller | null = null;
+      const { handler, caller } = parseRemoveArgs<EventHandler<T>>(args);
       
-      if (args.length === 1) {
-        // Handler only case
-        handler = args[0] as EventHandler<T>;
-        caller = null;
-      } else {
-        // Caller and handler case
-        caller = args[0] as Caller;
-        handler = args[1] as EventHandler<T>;
-      }
-      
-      // Try to remove from regular listeners
-      const regularIndex = listeners.findIndex(
-        (l) => l.caller === caller && l.handler === handler
-      );
-      
-      if (regularIndex !== -1) {
-        listeners.splice(regularIndex, 1);
-        return true;
-      }
-      
-      // Try to remove from once listeners
-      const onceIndex = onceListeners.findIndex(
-        (l) => l.caller === caller && l.handler === handler
-      );
-      
-      if (onceIndex !== -1) {
-        onceListeners.splice(onceIndex, 1);
-        return true;
-      }
-      
-      return false;
+      // Try to remove from regular listeners first (more common case)
+      return findAndRemove(listeners, handler, caller) ||
+             findAndRemove(onceListeners, handler, caller);
     },
 
     removeAll(): void {
@@ -160,23 +62,32 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
     },
 
     emit(args: T): void {
+      // Fast path for no listeners
+      if (!listeners.length && !onceListeners.length) return;
+      
       // Execute regular listeners
-      // Create a copy to avoid issues with modification during iteration
-      const currentListeners = [...listeners];
-      for (let i = 0; i < currentListeners.length; i++) {
-        const listener = currentListeners[i];
-        try {
-          if (listener.caller) {
-            listener.handler.call(listener.caller, args);
-          } else {
-            listener.handler(args);
-          }
-        } catch (error) {
-          if (logErrors) {
-            console.error('Error in event handler:', error);
-          }
-          if (!continueOnError) {
-            throw error;
+      if (listeners.length > 0) {
+        // Create a copy to avoid issues with modification during iteration
+        const currentListeners = [...listeners];
+        
+        for (let i = 0; i < currentListeners.length; i++) {
+          const listener = currentListeners[i];
+          // Skip if listener is undefined (might happen if removed during iteration)
+          if (!listener) continue;
+          
+          try {
+            if (listener.caller) {
+              listener.handler.call(listener.caller, args);
+            } else {
+              listener.handler(args);
+            }
+          } catch (error) {
+            if (logErrors) {
+              console.error('Error in event handler:', error);
+            }
+            if (!continueOnError) {
+              throw error;
+            }
           }
         }
       }
@@ -192,6 +103,8 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
         // Execute the once listeners
         for (let i = 0; i < currentOnceListeners.length; i++) {
           const listener = currentOnceListeners[i];
+          if (!listener) continue;
+          
           try {
             if (listener.caller) {
               listener.handler.call(listener.caller, args);
@@ -210,4 +123,6 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
       }
     }
   };
+  
+  return eventObj;
 }
