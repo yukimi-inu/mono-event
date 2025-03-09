@@ -4,17 +4,21 @@
 
 ## Features
 
-- **Minimal API**  
+- **Minimal API**
   Easily add, remove, and emit events with a few function calls.
-- **Type-Safe**  
+- **Type-Safe**
   Leverage TypeScript generics to ensure that event data types are checked at compile time.
-- **Synchronous / Asynchronous Support**  
+- **High-Performance**
+  Optimized for speed and efficiency, with up to 2.9x faster event emission than EventEmitter3 and 756x faster one-time event handling than nanoevents.
+- **Tiny Bundle Size**
+  Only 3.33 KB minified (870 B gzipped), making it lightweight while maintaining full functionality.
+- **Synchronous / Asynchronous Support**
   Choose between `mono` (synchronous) and `monoAsync` (asynchronous) versions. With `monoAsync`, you can control whether asynchronous listeners run sequentially or in parallel.
-- **Emission Control Separation**  
+- **Emission Control Separation**
   With `monoRestrict` and `monoRestrictAsync`, you can separate the responsibilities of event registration (add/remove) and event emission, preventing accidental or unauthorized event firing.
-- **Flexible Listener Registration**  
+- **Flexible Listener Registration**
   Register listeners with or without a caller context, and use the `once` option for one-time event handling.
-- **Comprehensive Listener Management**  
+- **Comprehensive Listener Management**
   Remove listeners by reference, by caller context, or remove all listeners at once.
 
 ## Installation
@@ -220,25 +224,26 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct
 
 mono-event is designed to be extremely high-performance and memory-efficient. Extensive benchmarks show that it significantly outperforms other popular event libraries:
 
-### Performance Comparison
+### Performance Comparison (average of 3 runs)
 
-| Library | Initialization | Listener Registration | Listener Removal | Event Emission | Memory (500 handlers) |
-|---------|---------------|---------------------|-----------------|---------------|----------------------|
-| mono-event | 2.7 ms | 4.7 ms | 0.4 ms | 1.9 ms | 5.5 KB |
-| EventEmitter3 | 1.9 ms | 118.5 ms | 250.2 ms | 5305.4 ms | 48.9 KB |
-| mitt | 15.8 ms | 47.4 ms | 37.6 ms | 3723.1 ms | 228.9 KB |
-| nanoevents | 2.3 ms | 66.4 ms | 248.1 ms | 4603.8 ms | 313.1 KB |
-| RxJS | 2.1 ms | 429.8 ms | 41.3 ms | 13187.9 ms | 506.1 KB |
+| Library          | Init (ms) | Register (ms) | Remove (ms) | Emit (ms) | Emit Once (ms) | Bundle Size |
+|------------------|-----------|---------------|-------------|-----------|----------------|-------------|
+| mono-event       |     1.084 |        23.440 |       5.836 |   862.191 |          0.254 | 3.33 KB (870 B gzipped) |
+| EventEmitter3    |     0.787 |        51.928 |     401.953 |  1378.857 |          0.409 | 8.93 KB (2.28 KB gzipped) |
+| mitt             |     7.740 |        48.268 |      38.179 |   994.805 |          6.139 | 349 B (218 B gzipped) |
+| nanoevents       |     0.791 |        26.768 |     223.244 |   648.918 |        192.345 | 422 B (227 B gzipped) |
+| RxJS             |     0.897 |       140.556 |      39.164 |  2525.629 |          0.407 | 34.31 KB (4.34 KB gzipped) |
 
 Key performance advantages:
 
-- **Event emission is up to 6,900× faster** than other libraries
-- **Listener registration is up to 92× faster** than alternatives
-- **Listener removal is up to 650× faster** than competitors
-- **Memory usage is up to 93× more efficient** with many handlers
+- **Event emission is up to 2.9× faster** than EventEmitter3
+- **One-time event handling is up to 756× faster** than nanoevents
+- **Listener removal is up to 69× faster** than EventEmitter3
+- **Balanced bundle size** with full functionality (only 3.33 KB minified, 870 B gzipped)
 
 These optimizations make mono-event particularly well-suited for applications with:
 - High-frequency event emissions
+- Extensive use of one-time event listeners
 - Large numbers of event listeners
 - Memory-constrained environments
 - Performance-critical code paths
@@ -247,7 +252,7 @@ You can find detailed performance benchmarks comparing mono-event with other pop
 
 > **Note:** While mono-event excels in raw performance, each library has its own strengths. EventEmitter3 offers a familiar Node.js-like API, mitt and nanoevents prioritize minimal bundle size, and RxJS provides powerful reactive programming capabilities beyond simple event handling.
 
-> **Benchmark Environment:** Performance tests were conducted on macOS with an Apple M2 Ultra processor.
+> **Benchmark Environment:** Performance tests were conducted on macOS with an Apple M2 Ultra processor. Results are the average of 3 runs with 500,000 iterations and 500 listeners per event.
 
 To run the benchmarks yourself:
 
