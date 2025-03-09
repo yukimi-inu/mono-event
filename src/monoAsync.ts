@@ -2,147 +2,26 @@
  * Asynchronous event implementation
  */
 
-import type { AsyncEventOptions, EmitterOptions } from './types';
-import type { AsyncEventHandler, MonoAsyncEvent } from './types/async';
-import type { ListenerInfo } from './utils';
-import {
-  parseAddArgs,
-  createUnsubscribe,
-  parseRemoveArgs,
-  findAndRemove,
-  removeOnceListeners
-} from './utils';
+import type {AsyncEventOptions, EmitterOptions} from './types';
+import type {MonoAsyncEvent} from './types/async';
+import {monoAsyncProto} from './utils';
 
 /**
  * Creates a new asynchronous event
  */
 export function monoAsync<T>(options: AsyncEventOptions & EmitterOptions = {}): MonoAsyncEvent<T> {
   // Set options with defaults
-  const { parallel = false, continueOnError = false, logErrors = false } = options;
-  
-  // Use simple array for best performance
-  const listeners: Array<ListenerInfo<AsyncEventHandler<T>>> = [];
+  const {parallel = false, continueOnError = false, logErrors = false} = options;
 
-  // Create event object with optimized methods
-  const eventObj = {
-    add(...args: unknown[]): () => void {
-      const parsed = parseAddArgs<AsyncEventHandler<T>>(args);
-      
-      // Store listener info
-      const listenerInfo: ListenerInfo<AsyncEventHandler<T>> = {
-        handler: parsed.handler,
-        caller: parsed.caller,
-        once: !!parsed.options.once,
-      };
+  // Create instance with shared methods
+  const instance = Object.create(monoAsyncProto);
 
-      listeners.push(listenerInfo);
+  // Add instance-specific properties
+  instance.listeners = [];
+  instance.onceListeners = [];
+  instance.parallel = parallel;
+  instance.continueOnError = continueOnError;
+  instance.logErrors = logErrors;
 
-      // Return unsubscribe function
-      return createUnsubscribe(listeners, listenerInfo);
-    },
-
-    remove(...args: unknown[]): boolean {
-      const { handler, caller } = parseRemoveArgs<AsyncEventHandler<T>>(args);
-      return findAndRemove(listeners, handler, caller);
-    },
-
-    removeAll(): void {
-      // Empty array (fastest method)
-      listeners.length = 0;
-    },
-
-    emit: async (args: T): Promise<void> => {
-      // Fast path for no listeners
-      if (!listeners.length) return;
-      
-      if (parallel) {
-        // Parallel execution
-        // Create a copy to avoid issues with modification during iteration
-        const currentListeners = [...listeners];
-        
-        // Track indexes to remove
-        const toRemoveIndexes: number[] = [];
-        const promises: Promise<void>[] = [];
-        let hasOnce = false;
-        
-        for (let i = 0; i < currentListeners.length; i++) {
-          const listener = currentListeners[i];
-          // Skip if listener is undefined
-          if (!listener) continue;
-          
-          const promise = (async () => {
-            try {
-              // Use caller context if available
-              if (listener.caller) {
-                await listener.handler.call(listener.caller, args);
-              } else {
-                await listener.handler(args);
-              }
-              
-              // Record index for once listeners
-              if (listener.once) {
-                hasOnce = true;
-                const originalIndex = listeners.indexOf(listener);
-                if (originalIndex !== -1) {
-                  toRemoveIndexes.push(originalIndex);
-                }
-              }
-            } catch (error) {
-              if (logErrors) {
-                console.error('Error in async event handler:', error);
-              }
-              if (!continueOnError) {
-                throw error;
-              }
-            }
-          })();
-          
-          promises.push(promise);
-        }
-        
-        // Wait for all promises to complete
-        await Promise.all(promises);
-        
-        // Remove once listeners only if needed
-        if (hasOnce) {
-          removeOnceListeners(listeners, toRemoveIndexes);
-        }
-      } else {
-        // Sequential execution
-        // Create a copy to avoid issues with modification during iteration
-        const currentListeners = [...listeners];
-        
-        for (let i = 0; i < currentListeners.length; i++) {
-          const listener = currentListeners[i];
-          // Skip if listener is undefined
-          if (!listener) continue;
-          
-          try {
-            if (listener.caller) {
-              await listener.handler.call(listener.caller, args);
-            } else {
-              await listener.handler(args);
-            }
-            
-            // Remove once listeners immediately
-            if (listener.once) {
-              const originalIndex = listeners.indexOf(listener);
-              if (originalIndex !== -1) {
-                listeners.splice(originalIndex, 1);
-              }
-            }
-          } catch (error) {
-            if (logErrors) {
-              console.error('Error in async event handler:', error);
-            }
-            if (!continueOnError) {
-              throw error;
-            }
-          }
-        }
-      }
-    },
-  };
-  
-  return eventObj;
+  return instance as MonoAsyncEvent<T>;
 }

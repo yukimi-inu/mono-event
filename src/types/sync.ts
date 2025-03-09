@@ -2,7 +2,7 @@
  * Synchronous event type definitions
  */
 
-import type { EventOptions } from './common';
+import type {EventOptions} from './common';
 
 /**
  * Type definition for a synchronous event handler
@@ -20,7 +20,7 @@ export interface MonoEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: EventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
@@ -68,7 +68,7 @@ export interface MonoRestrictedEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: EventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler

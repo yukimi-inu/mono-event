@@ -76,15 +76,6 @@ export interface AsyncEventOptions {
 export type Caller = object;
 
 /**
- * Internal handler registration information
- */
-export interface HandlerRegistration<T, H extends GenericFunction> {
-  caller: Caller | null;
-  handler: H;
-  options: EventOptions;
-}
-
-/**
  * Type definition for a synchronous event
  */
 export interface MonoEvent<T> {
@@ -95,7 +86,7 @@ export interface MonoEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: EventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
@@ -143,7 +134,7 @@ export interface MonoAsyncEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: AsyncEventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
@@ -192,7 +183,7 @@ export interface MonoRestrictedEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: EventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
@@ -234,7 +225,7 @@ export interface MonoRestrictedAsyncEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: AsyncEventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler

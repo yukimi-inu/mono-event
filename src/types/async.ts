@@ -2,7 +2,7 @@
  * Asynchronous event type definitions
  */
 
-import type { EventOptions } from './common';
+import type {EventOptions} from './common';
 
 /**
  * Type definition for an asynchronous event handler
@@ -20,7 +20,7 @@ export interface MonoAsyncEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: AsyncEventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
@@ -69,7 +69,7 @@ export interface MonoRestrictedAsyncEvent<T> {
    * @returns A function to remove the listener
    */
   add(handler: AsyncEventHandler<T>, options?: EventOptions): () => void;
-  
+
   /**
    * Add a listener to the event with a caller context
    * @param caller The object that will be 'this' in the handler
