@@ -434,14 +434,13 @@ function runOnceEmissionBenchmark() {
   // nanoevents (Note: nanoevents doesn't have built-in once functionality)
   onceCounter = 0;
   const nanoEmitOnce = createNanoEvents();
-  // We'll simulate 'once' behavior for nanoevents
+  // We'll simulate 'once' behavior for nanoevents using the recommended pattern
   const nanoUnbinds = [];
   for (let i = 0; i < ONCE_LISTENER_COUNT; i++) {
-    const wrappedHandler = (e) => {
-      onceHandler(e);
-      unbind();
-    };
-    const unbind = nanoEmitOnce.on('event', wrappedHandler);
+    const unbind = nanoEmitOnce.on('event', (e) => {
+      unbind(); // First unbind to ensure removal even if handler throws
+      onceHandler(e); // Then call the handler
+    });
     nanoUnbinds.push(unbind);
   }
   const nanoEmitOnceTime = measureTime(() => {
