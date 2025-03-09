@@ -299,7 +299,7 @@ console.log(`RxJS: ${rxjsEmitTime.toFixed(3)} ms`);
 
 // ===== Event Emission with Once Listeners Benchmark =====
 // For once listeners, we use a single iteration with many listeners
-const ONCE_LISTENER_COUNT = 10000; // 10,000 listeners for once test
+const ONCE_LISTENER_COUNT = 5 * 10000; // 50,000 listeners for once test
 console.log(`\n----- Event Emission Time with Once Listeners (${ONCE_LISTENER_COUNT} listeners, 1 iteration) -----`);
 
 // Setup for emission tests with once listeners

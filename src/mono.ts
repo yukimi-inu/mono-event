@@ -55,9 +55,12 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
     once: boolean;
   }> = [];
   
-  // We'll track once listeners directly in the listeners array
-  // without using a separate Set for indices
-
+  // Store once listeners separately for faster access during emit
+  const onceListeners: Array<{
+    handler: EventHandler<T>;
+    caller: Caller | null;
+  }> = [];
+  
   // Return object directly to avoid spread operator and function calls
   return {
     add(...args: unknown[]): () => void {
@@ -75,72 +78,93 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
         options = (args[2] as EventOptions) || {};
       }
 
-      // Store listener info
+      // Check if it's a once listener
+      const isOnce = !!options.once;
+      
+      if (isOnce) {
+        // Store once listener separately
+        const onceListener = {
+          handler,
+          caller
+        };
+        onceListeners.push(onceListener);
+        
+        // Return unsubscribe function
+        return () => {
+          const index = onceListeners.indexOf(onceListener);
+          if (index !== -1) {
+            onceListeners.splice(index, 1);
+          }
+        };
+      }
+      
+      // Store regular listener
       const listenerInfo = {
         handler,
         caller,
-        once: !!options.once,
+        once: false
       };
-
-      // Add to listeners array
-      const index = listeners.length;
+      
       listeners.push(listenerInfo);
       
-      // If it's a once listener, store its index
-      if (listenerInfo.once) {
-        onceIndices.add(index);
-      }
-
       // Return unsubscribe function
       return () => {
         const index = listeners.indexOf(listenerInfo);
         if (index !== -1) {
           listeners.splice(index, 1);
-          updateOnceIndices(index);
         }
       };
     },
 
     remove(...args: unknown[]): boolean {
-      let index = -1;
-
+      let handler: EventHandler<T>;
+      let caller: Caller | null = null;
+      
       if (args.length === 1) {
         // Handler only case
-        const handler = args[0] as EventHandler<T>;
-        index = listeners.findIndex((l) => l.caller === null && l.handler === handler);
+        handler = args[0] as EventHandler<T>;
+        caller = null;
       } else {
         // Caller and handler case
-        const caller = args[0] as Caller;
-        const handler = args[1] as EventHandler<T>;
-        index = listeners.findIndex((l) => l.caller === caller && l.handler === handler);
+        caller = args[0] as Caller;
+        handler = args[1] as EventHandler<T>;
       }
-
-      if (index !== -1) {
-        listeners.splice(index, 1);
-        updateOnceIndices(index);
+      
+      // Try to remove from regular listeners
+      const regularIndex = listeners.findIndex(
+        (l) => l.caller === caller && l.handler === handler
+      );
+      
+      if (regularIndex !== -1) {
+        listeners.splice(regularIndex, 1);
         return true;
       }
+      
+      // Try to remove from once listeners
+      const onceIndex = onceListeners.findIndex(
+        (l) => l.caller === caller && l.handler === handler
+      );
+      
+      if (onceIndex !== -1) {
+        onceListeners.splice(onceIndex, 1);
+        return true;
+      }
+      
       return false;
     },
 
     removeAll(): void {
-      // Empty array (fastest method)
+      // Empty arrays (fastest method)
       listeners.length = 0;
-      // Clear once indices
-      onceIndices.clear();
+      onceListeners.length = 0;
     },
 
     emit(args: T): void {
-      // Create a copy of listeners to avoid issues with modification during iteration
+      // Execute regular listeners
+      // Create a copy to avoid issues with modification during iteration
       const currentListeners = [...listeners];
-      
-      // Get a copy of once indices and convert to array for easier sorting
-      const onceIndicesToRemove = Array.from(onceIndices);
-      
-      // Execute all listeners
       for (let i = 0; i < currentListeners.length; i++) {
         const listener = currentListeners[i];
-        
         try {
           if (listener.caller) {
             listener.handler.call(listener.caller, args);
@@ -157,81 +181,33 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
         }
       }
       
-      // Remove once listeners in reverse order of their indices
-      if (onceIndicesToRemove.length > 0) {
-        // Sort by index in descending order
-        onceIndicesToRemove.sort((a, b) => b - a);
+      // Execute once listeners and clear them
+      if (onceListeners.length > 0) {
+        // Create a copy of once listeners
+        const currentOnceListeners = [...onceListeners];
         
-        // Remove once listeners and update indices
-        for (const index of onceIndicesToRemove) {
-          listeners.splice(index, 1);
-          onceIndices.delete(index);
-        }
+        // Clear the once listeners array immediately
+        onceListeners.length = 0;
         
-        // Update remaining once indices
-        const newOnceIndices: Set<number> = new Set();
-        for (const index of onceIndices) {
-          let newIndex = index;
-          // For each removed index, decrement the current index if it's greater
-          for (const removedIndex of onceIndicesToRemove) {
-            if (index > removedIndex) {
-              newIndex--;
+        // Execute the once listeners
+        for (let i = 0; i < currentOnceListeners.length; i++) {
+          const listener = currentOnceListeners[i];
+          try {
+            if (listener.caller) {
+              listener.handler.call(listener.caller, args);
+            } else {
+              listener.handler(args);
+            }
+          } catch (error) {
+            if (logErrors) {
+              console.error('Error in event handler:', error);
+            }
+            if (!continueOnError) {
+              throw error;
             }
           }
-          newOnceIndices.add(newIndex);
-        }
-        
-        // Replace the old set with the updated one
-        onceIndices.clear();
-        for (const index of newOnceIndices) {
-          onceIndices.add(index);
         }
       }
-
-      // // Create a copy for iteration during removal
-      // const currentListeners = listeners.slice();
-      //
-      // // Track indexes to remove
-      // const toRemoveIndexes: number[] = [];
-      //
-      // for (let i = 0; i < currentListeners.length; i++) {
-      //   const listener = currentListeners[i];
-      //
-      //   try {
-      //     // Use caller context if available
-      //     if (listener.caller) {
-      //       listener.handler.call(listener.caller, args);
-      //     } else {
-      //       listener.handler(args);
-      //     }
-      //
-      //     // Record index for once listeners
-      //     if (listener.once) {
-      //       const originalIndex = listeners.indexOf(listener);
-      //       if (originalIndex !== -1) {
-      //         toRemoveIndexes.push(originalIndex);
-      //       }
-      //     }
-      //   } catch (error) {
-      //     // Log errors if enabled
-      //     if (logErrors) {
-      //       console.error('Error in event handler:', error);
-      //     }
-      //
-      //     // Stop processing if continueOnError is false
-      //     if (!continueOnError) {
-      //       throw error;
-      //     }
-      //   }
-      // }
-      //
-      // // Sort indexes in descending order and remove from highest to lowest
-      // if (toRemoveIndexes.length > 0) {
-      //   toRemoveIndexes.sort((a, b) => b - a);
-      //   for (let i = 0; i < toRemoveIndexes.length; i++) {
-      //     listeners.splice(toRemoveIndexes[i], 1);
-      //   }
-      // }
-    },
+    }
   };
 }
