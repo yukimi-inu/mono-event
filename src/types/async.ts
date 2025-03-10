@@ -7,7 +7,7 @@ import type {EventOptions} from './common';
 /**
  * Type definition for an asynchronous event handler
  */
-export type AsyncEventHandler<T> = (args: T) => Promise<void> | void;
+export type AsyncEventHandler<T> = (_: T) => Promise<void> | void;
 
 /**
  * Type definition for an asynchronous event

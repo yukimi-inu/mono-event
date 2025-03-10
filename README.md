@@ -260,11 +260,21 @@ significantly outperforms other popular event libraries:
 
 | Library       | Init (ms) | Register (ms) | Remove (ms) | Emit (ms) | Emit Once (ms) | Bundle Size                |
 |---------------|-----------|---------------|-------------|-----------|----------------|----------------------------|
-| mono-event    | 0.993     | 26.062        | 5.510       | 937.289   | 0.322          | 3.40 KB (975 B gzipped)    |
-| EventEmitter3 | 0.764     | 35.818        | 256.709     | 1369.783  | 0.395          | 8.93 KB (2.28 KB gzipped)  |
-| mitt          | 7.789     | 27.057        | 38.042      | 982.817   | 5.353          | 349 B (218 B gzipped)      |
-| nanoevents    | 0.877     | 78.741        | 212.609     | 636.952   | 193.432        | 422 B (227 B gzipped)      |
+| mono-event    | 0.993     | **26.062**    | **5.510**   | 937.289   | **0.322**      | 3.40 KB (975 B gzipped)    |
+| EventEmitter3 | **0.764** | 35.818        | 256.709     | 1369.783  | 0.395          | 8.93 KB (2.28 KB gzipped)  |
+| mitt          | 7.789     | 27.057        | 38.042      | 982.817   | 5.353          | **349 B (218 B gzipped)**  |
+| nanoevents    | 0.877     | 78.741        | 212.609     | **636.952** | 193.432      | 422 B (227 B gzipped)      |
 | RxJS          | 0.896     | 180.773       | 39.614      | 2858.536  | 0.431          | 34.31 KB (4.34 KB gzipped) |
+
+### Memory Usage Comparison
+
+| Library       | Per Instance | With 500 Handlers | 1,000 Events × 100 Instances | 100,000 Instances | Bundle Size                |
+|---------------|--------------|-------------------|------------------------------|-------------------|----------------------------|
+| mono-event    | 0.18 KB      | 241.91 KB         | -                            | 21,884.91 KB      | 3.40 KB (975 B gzipped)    |
+| EventEmitter3 | **0.10 KB**  | **36.49 KB**      | 4,052.32 KB                  | **6,710.36 KB**   | 8.93 KB (2.28 KB gzipped)  |
+| mitt          | 0.51 KB      | 38.51 KB          | **1,442.74 KB**              | 44,460.73 KB      | **349 B (218 B gzipped)**  |
+| nanoevents    | 0.26 KB      | 90.10 KB          | 15,893.22 KB                 | 31,636.95 KB      | 422 B (227 B gzipped)      |
+| RxJS          | 0.15 KB      | 359.48 KB         | 70,968.35 KB                 | 68,264.93 KB      | 34.31 KB (4.34 KB gzipped) |
 
 Key performance advantages:
 
@@ -273,13 +283,15 @@ Key performance advantages:
 - **Listener removal is up to 47× faster** than EventEmitter3
 - **Balanced bundle size** with full functionality (only 3.40 KB minified, 975 B gzipped)
 
+While mono-event uses more memory than some alternatives (as shown in the memory comparison table), this is a deliberate trade-off to achieve superior performance and functionality. The memory usage is still reasonable for most applications, and the performance benefits often outweigh the additional memory cost.
+
 These optimizations make mono-event particularly well-suited for applications with:
 
 - High-frequency event emissions
 - Extensive use of one-time event listeners
 - Large numbers of event listeners
-- Memory-constrained environments
 - Performance-critical code paths
+- Applications where event handling speed is more critical than memory footprint
 
 You can find detailed performance benchmarks comparing mono-event with other popular event libraries (EventEmitter3,
 mitt, nanoevents, RxJS) in the [docs/performance](docs/performance) directory.

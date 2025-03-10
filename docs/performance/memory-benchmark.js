@@ -382,8 +382,8 @@ console.log(`mitt: ${formatMemoryWithStabilityAndCommas(mittWithHandlersMemory)}
 console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMemory)}`);
 console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)}`);
 
-// ===== Scenario 3: Multiple Events vs Multiple Instances =====
-console.log('\n===== Scenario 3: Multiple Events vs Multiple Instances =====');
+// ===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====
+console.log('\n===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====');
 
 const EVENT_COUNT = 1000;
 const INSTANCE_COUNT = 100;
@@ -468,6 +468,62 @@ console.log(
 );
 console.log(`mono-event (${formatNumber(MONO_INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`);
 
+// ===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====
+console.log('\n===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====');
+
+console.log(`Creating ${formatNumber(MONO_INSTANCE_COUNT)} instances of each library to compare memory usage\n`);
+
+// EventEmitter3 with MONO_INSTANCE_COUNT instances
+const ee3ManyInstancesMemory = measureMemoryUsage(() => {
+  const instances = [];
+  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
+    const emitter = new EventEmitter3();
+    emitter.on('event', dummyHandler);
+    instances.push(emitter);
+  }
+  return instances;
+});
+
+// mitt with MONO_INSTANCE_COUNT instances
+const mittManyInstancesMemory = measureMemoryUsage(() => {
+  const instances = [];
+  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
+    const emitter = mitt();
+    emitter.on('event', dummyHandler);
+    instances.push(emitter);
+  }
+  return instances;
+});
+
+// nanoevents with MONO_INSTANCE_COUNT instances
+const nanoManyInstancesMemory = measureMemoryUsage(() => {
+  const instances = [];
+  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
+    const emitter = createNanoEvents();
+    emitter.on('event', dummyHandler);
+    instances.push(emitter);
+  }
+  return instances;
+});
+
+// RxJS with MONO_INSTANCE_COUNT instances
+const rxjsManyInstancesMemory = measureMemoryUsage(() => {
+  const instances = [];
+  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
+    const subject = new Subject();
+    subject.subscribe(dummyHandler);
+    instances.push(subject);
+  }
+  return instances;
+});
+
+console.log(`Memory usage for ${formatNumber(MONO_INSTANCE_COUNT)} instances with 1 handler each:`);
+console.log(`mono-event: ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`);
+console.log(`EventEmitter3: ${formatMemoryWithStabilityAndCommas(ee3ManyInstancesMemory)}`);
+console.log(`mitt: ${formatMemoryWithStabilityAndCommas(mittManyInstancesMemory)}`);
+console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoManyInstancesMemory)}`);
+console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsManyInstancesMemory)}`);
+
 // ===== Bundle Size Benchmark =====
 console.log('\n===== Bundle Size Benchmark =====');
 
@@ -517,11 +573,11 @@ for (const [library, info] of Object.entries(bundleSizes)) {
 console.log('\n===== Memory Usage Summary =====');
 
 console.log(`
-| Library      | Per Instance | With ${formatNumber(HANDLER_COUNT)} Handlers | ${formatNumber(EVENT_COUNT)} Events × ${formatNumber(INSTANCE_COUNT)} Instances | Bundle Size | Gzipped Size |
-|--------------|--------------|-----------------|--------------------------|-------------|--------------|
-| mono-event   | ${formatMemoryWithStabilityAndCommas(monoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(monoWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)} (${formatNumber(MONO_INSTANCE_COUNT)} instances) | ${formatSize(bundleSizes['mono-event'].size)} | ${formatSize(bundleSizes['mono-event'].gzippedSize)} |
-| EventEmitter3| ${formatMemoryWithStabilityAndCommas(ee3Memory, COUNT)} | ${formatMemoryWithStabilityAndCommas(ee3WithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)} | ${formatSize(bundleSizes.eventemitter3.size)} | ${formatSize(bundleSizes.eventemitter3.gzippedSize)} |
-| mitt         | ${formatMemoryWithStabilityAndCommas(mittMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(mittWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)} | ${formatSize(bundleSizes.mitt.size)} | ${formatSize(bundleSizes.mitt.gzippedSize)} |
-| nanoevents   | ${formatMemoryWithStabilityAndCommas(nanoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)} | ${formatSize(bundleSizes.nanoevents.size)} | ${formatSize(bundleSizes.nanoevents.gzippedSize)} |
-| RxJS         | ${formatMemoryWithStabilityAndCommas(rxjsMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)} | ${formatSize(bundleSizes.rxjs.size)} | ${formatSize(bundleSizes.rxjs.gzippedSize)} |
+| Library      | Per Instance | With ${formatNumber(HANDLER_COUNT)} Handlers | ${formatNumber(EVENT_COUNT)} Events × ${formatNumber(INSTANCE_COUNT)} Instances | ${formatNumber(MONO_INSTANCE_COUNT)} Instances | Bundle Size | Gzipped Size |
+|--------------|--------------|-----------------|--------------------------|-----------------|-------------|--------------|
+| mono-event   | ${formatMemoryWithStabilityAndCommas(monoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(monoWithHandlersMemory)} | - | ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)} | ${formatSize(bundleSizes['mono-event'].size)} | ${formatSize(bundleSizes['mono-event'].gzippedSize)} |
+| EventEmitter3| ${formatMemoryWithStabilityAndCommas(ee3Memory, COUNT)} | ${formatMemoryWithStabilityAndCommas(ee3WithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(ee3ManyInstancesMemory)} | ${formatSize(bundleSizes.eventemitter3.size)} | ${formatSize(bundleSizes.eventemitter3.gzippedSize)} |
+| mitt         | ${formatMemoryWithStabilityAndCommas(mittMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(mittWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(mittManyInstancesMemory)} | ${formatSize(bundleSizes.mitt.size)} | ${formatSize(bundleSizes.mitt.gzippedSize)} |
+| nanoevents   | ${formatMemoryWithStabilityAndCommas(nanoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(nanoManyInstancesMemory)} | ${formatSize(bundleSizes.nanoevents.size)} | ${formatSize(bundleSizes.nanoevents.gzippedSize)} |
+| RxJS         | ${formatMemoryWithStabilityAndCommas(rxjsMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(rxjsManyInstancesMemory)} | ${formatSize(bundleSizes.rxjs.size)} | ${formatSize(bundleSizes.rxjs.gzippedSize)} |
 `);

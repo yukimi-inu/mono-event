@@ -7,7 +7,7 @@ import type {EventOptions} from './common';
 /**
  * Type definition for a synchronous event handler
  */
-export type EventHandler<T> = (args: T) => void;
+export type EventHandler<T> = (_: T) => void;
 
 /**
  * Type definition for a synchronous event
