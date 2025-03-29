@@ -19,7 +19,7 @@ export function monoRestrict<T>(options: EmitterOptions = {}): {
   // Create event instance with shared methods
   const eventInstance = Object.create(monoRestrictEventProto);
 
-  // Add instance-specific properties to eventInstance (listeners are lazily initialized)
+  // Add instance-specific properties (listeners are lazily initialized)
   eventInstance.listeners = null;
   eventInstance.onceListeners = null;
 
