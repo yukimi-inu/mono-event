@@ -6,16 +6,18 @@ import type {EventHandler} from './types/sync';
  * A compact structure that stores listener information
  */
 export interface CompactListener<H extends GenericFunction> {
-  h: H; // handler function
+  h: H; // handler function (kept for emit iteration)
   c: Caller | null; // caller context
 }
 
 /**
- * Base event context that holds arrays of listeners
+ * Base event context that holds Maps of listeners
+ * Key: handler function (H)
+ * Value: CompactListener<H>
  */
 export interface BaseEventContext<H extends GenericFunction> {
-  listeners: Array<CompactListener<H>>;
-  onceListeners: Array<CompactListener<H>>;
+  listeners: Map<H, CompactListener<H>>;
+  onceListeners: Map<H, CompactListener<H>>;
 }
 
 /**
@@ -36,7 +38,6 @@ export interface AsyncEventContext<T = unknown> extends BaseEventContext<AsyncEv
 
   // Private emission methods
   _emitParallel(args: T): Promise<void>;
-
   _emitSequential(args: T): Promise<void>;
 }
 
@@ -62,7 +63,6 @@ export interface RestrictedAsyncEmitContext<T = unknown> {
 
   // Private emission methods
   _emitParallel(args: T): Promise<void>;
-
   _emitSequential(args: T): Promise<void>;
 }
 
@@ -83,17 +83,14 @@ export function parseAddArgs<H extends GenericFunction>(
 }
 
 /**
- * Creates an unsubscribe function that removes the specified listener.
+ * Creates an unsubscribe function that removes the specified listener from a Map.
  */
 export function createUnsubscribe<H extends GenericFunction>(
-  listeners: Array<CompactListener<H>>,
-  listener: CompactListener<H>,
+  listenerMap: Map<H, CompactListener<H>>,
+  handler: H, // Use handler as the key
 ): () => void {
   return function unsubscribe() {
-    const index = listeners.indexOf(listener);
-    if (index !== -1) {
-      listeners.splice(index, 1);
-    }
+    listenerMap.delete(handler);
   };
 }
 
@@ -110,23 +107,26 @@ export function parseRemoveArgs<H extends GenericFunction>(args: unknown[]): { h
 }
 
 /**
- * Finds and removes a specific listener from the array.
+ * Finds and removes a specific listener from the Map based on handler and caller.
  * Returns true if removed, otherwise false.
+ * NOTE: This implementation assumes handler function is the primary key.
+ *       If multiple callers use the same handler, only the first added one
+ *       can be reliably removed using this key strategy.
+ *       A more robust key would involve combining handler and caller.
  */
 export function findAndRemove<H extends GenericFunction>(
-  listeners: Array<CompactListener<H>>,
+  listenerMap: Map<H, CompactListener<H>>,
   handler: H,
   caller: Caller | null,
 ): boolean {
-  for (let i = 0; i < listeners.length; i++) {
-    const l = listeners[i];
-    if (l.c === caller && l.h === handler) {
-      listeners.splice(i, 1);
-      return true;
-    }
+  const listener = listenerMap.get(handler);
+  // Check if listener exists and the caller matches
+  if (listener && listener.c === caller) {
+    return listenerMap.delete(handler); // delete returns true if successful
   }
   return false;
 }
+
 
 /**
  * Executes a synchronous handler with error handling.
@@ -183,40 +183,42 @@ export async function executeAsyncHandler<T>(
 }
 
 /* ------------------------------------------------------------------
-   Common helper function for synchronous emission
+   Common helper function for synchronous emission using Maps
 ------------------------------------------------------------------ */
 function emitSyncHandlers<T>(
-  listeners: Array<CompactListener<EventHandler<T>>>,
-  onceListeners: Array<CompactListener<EventHandler<T>>>,
+  listeners: Map<EventHandler<T>, CompactListener<EventHandler<T>>>,
+  onceListeners: Map<EventHandler<T>, CompactListener<EventHandler<T>>>,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
 ): void {
   // Handle regular (persistent) listeners
-  if (listeners.length > 0) {
-    const current = [...listeners]; // copy to avoid modification issues
-    for (const listener of current) {
+  if (listeners.size > 0) {
+    // Iterate over values (CompactListener objects)
+    for (const listener of listeners.values()) {
       executeSyncHandler(listener, args, continueOnError, logErrors);
     }
   }
 
   // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0; // Clear onceListeners immediately
+  if (onceListeners.size > 0) {
+    // Copy once listeners before iterating and clearing
+    const currentOnce = Array.from(onceListeners.values());
+    onceListeners.clear(); // Clear onceListeners immediately
     for (const listener of currentOnce) {
       executeSyncHandler(listener, args, continueOnError, logErrors);
     }
   }
 }
 
+
 /* ------------------------------------------------------------------
-   Common helper function for async emission
+   Common helper function for async emission using Maps
    (chooses between parallel or sequential execution)
 ------------------------------------------------------------------ */
 async function emitAsyncHandlers<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
+  onceListeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
   args: T,
   parallel: boolean,
   continueOnError: boolean,
@@ -230,11 +232,11 @@ async function emitAsyncHandlers<T>(
 }
 
 /**
- * Handles async emission in parallel.
+ * Handles async emission in parallel using Maps.
  */
 async function emitAsyncParallel<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
+  onceListeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
@@ -242,17 +244,16 @@ async function emitAsyncParallel<T>(
   const promises: Promise<void>[] = [];
 
   // Handle regular listeners
-  if (listeners.length > 0) {
-    const current = [...listeners];
-    for (const listener of current) {
+  if (listeners.size > 0) {
+    for (const listener of listeners.values()) {
       promises.push(executeAsyncHandler(listener, args, continueOnError, logErrors));
     }
   }
 
   // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0;
+  if (onceListeners.size > 0) {
+    const currentOnce = Array.from(onceListeners.values());
+    onceListeners.clear();
     for (const listener of currentOnce) {
       promises.push(executeAsyncHandler(listener, args, continueOnError, logErrors));
     }
@@ -263,86 +264,91 @@ async function emitAsyncParallel<T>(
 }
 
 /**
- * Handles async emission sequentially.
+ * Handles async emission sequentially using Maps.
  */
 async function emitAsyncSequential<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
+  onceListeners: Map<AsyncEventHandler<T>, CompactListener<AsyncEventHandler<T>>>,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
 ): Promise<void> {
   // Handle regular listeners
-  if (listeners.length > 0) {
-    const current = [...listeners];
-    for (const listener of current) {
+  if (listeners.size > 0) {
+    for (const listener of listeners.values()) {
       await executeAsyncHandler(listener, args, continueOnError, logErrors);
     }
   }
 
   // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0;
+  if (onceListeners.size > 0) {
+    const currentOnce = Array.from(onceListeners.values());
+    onceListeners.clear();
     for (const listener of currentOnce) {
       await executeAsyncHandler(listener, args, continueOnError, logErrors);
     }
   }
 }
 
+
 /* ------------------------------------------------------------------
-   Base methods (add, remove, removeAll) shared by all event contexts
+   Base methods (add, remove, removeAll) shared by all event contexts using Maps
 ------------------------------------------------------------------ */
 const baseEventMethods = {
   add<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): () => void {
     const {handler, caller, options} = parseAddArgs<H>(args);
 
+    // Use handler as the key for the Map
     const listener: CompactListener<H> = {h: handler, c: caller};
-    const targetArray = options.once ? this.onceListeners : this.listeners;
-    targetArray.push(listener);
+    const targetMap = options.once ? this.onceListeners : this.listeners;
 
-    // Return unsubscribe function
-    return createUnsubscribe(targetArray, listener);
+    // Add or overwrite listener in the Map
+    targetMap.set(handler, listener);
+
+    // Return unsubscribe function that uses the handler (key)
+    return createUnsubscribe(targetMap, handler);
   },
 
   remove<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): boolean {
     const {handler, caller} = parseRemoveArgs<H>(args);
+    // Attempt removal from both maps
     return findAndRemove(this.listeners, handler, caller) || findAndRemove(this.onceListeners, handler, caller);
   },
 
   removeAll<H extends GenericFunction>(this: BaseEventContext<H>): void {
-    this.listeners.length = 0;
-    this.onceListeners.length = 0;
+    this.listeners.clear();
+    this.onceListeners.clear();
   },
 };
 
+
 /* ------------------------------------------------------------------
-   Sync event emission methods
+   Sync event emission methods using Maps
 ------------------------------------------------------------------ */
 const syncEmitMethods = {
   emit<T>(this: SyncEventContext<T>, args: T): void {
-    if (!this.listeners.length && !this.onceListeners.length) return;
+    if (this.listeners.size === 0 && this.onceListeners.size === 0) return;
     emitSyncHandlers(this.listeners, this.onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
 /* ------------------------------------------------------------------
-   Restricted sync event emission methods
+   Restricted sync event emission methods using Maps
 ------------------------------------------------------------------ */
 const restrictedSyncEmitMethods = {
   emit<T>(this: RestrictedSyncEmitContext<T>, args: T): void {
     const {listeners, onceListeners} = this.event;
-    if (!listeners.length && !onceListeners.length) return;
+    if (listeners.size === 0 && onceListeners.size === 0) return;
     emitSyncHandlers(listeners, onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
 /* ------------------------------------------------------------------
-   Async event emission methods
+   Async event emission methods using Maps
 ------------------------------------------------------------------ */
 const asyncEmitMethods = {
   async emit<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
-    if (!this.listeners.length && !this.onceListeners.length) return;
+    if (this.listeners.size === 0 && this.onceListeners.size === 0) return;
     await emitAsyncHandlers(
       this.listeners,
       this.onceListeners,
@@ -363,12 +369,12 @@ const asyncEmitMethods = {
 };
 
 /* ------------------------------------------------------------------
-   Restricted async event emission methods
+   Restricted async event emission methods using Maps
 ------------------------------------------------------------------ */
 const restrictedAsyncEmitMethods = {
   async emit<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
     const {listeners, onceListeners} = this.event;
-    if (!listeners.length && !onceListeners.length) return;
+    if (listeners.size === 0 && onceListeners.size === 0) return;
     await emitAsyncHandlers(listeners, onceListeners, args, this.parallel, this.continueOnError, this.logErrors);
   },
 
@@ -383,8 +389,9 @@ const restrictedAsyncEmitMethods = {
   },
 };
 
+
 /* ------------------------------------------------------------------
-   Prototype objects with assigned methods
+   Prototype objects with assigned methods (no change needed here)
 ------------------------------------------------------------------ */
 export const monoProto = Object.create(null);
 Object.assign(monoProto, baseEventMethods, syncEmitMethods);

@@ -19,14 +19,14 @@ export function monoRestrict<T>(options: EmitterOptions = {}): {
   // Create event instance with shared methods
   const eventInstance = Object.create(monoRestrictEventProto);
 
-  // Add instance-specific properties
-  eventInstance.listeners = [];
-  eventInstance.onceListeners = [];
+  // Add instance-specific properties to eventInstance
+  eventInstance.listeners = new Map();
+  eventInstance.onceListeners = new Map();
 
   // Create emit instance with shared methods
   const emitInstance = Object.create(monoRestrictEmitProto);
 
-  // Add instance-specific properties
+  // Add instance-specific properties to emitInstance
   emitInstance.event = eventInstance;
   emitInstance.continueOnError = continueOnError;
   emitInstance.logErrors = logErrors;

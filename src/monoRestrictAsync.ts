@@ -19,14 +19,14 @@ export function monoRestrictAsync<T>(options: AsyncEventOptions & EmitterOptions
   // Create event instance with shared methods
   const eventInstance = Object.create(monoRestrictAsyncEventProto);
 
-  // Add instance-specific properties
-  eventInstance.listeners = [];
-  eventInstance.onceListeners = [];
+  // Add instance-specific properties to eventInstance
+  eventInstance.listeners = new Map();
+  eventInstance.onceListeners = new Map();
 
   // Create emit instance with shared methods
   const emitInstance = Object.create(monoRestrictAsyncEmitProto);
 
-  // Add instance-specific properties
+  // Add instance-specific properties to emitInstance
   emitInstance.event = eventInstance;
   emitInstance.parallel = parallel;
   emitInstance.continueOnError = continueOnError;
