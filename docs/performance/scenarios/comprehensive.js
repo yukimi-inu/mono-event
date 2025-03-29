@@ -42,7 +42,7 @@ export function runComprehensiveBenchmark(config) {
                 if (instance instanceof EventEmitter) instance.setMaxListeners(0);
                 if (instance instanceof EventTarget) setMaxListeners(0, instance);
                 const initialHandlers = [];
-                for (let j = 0; j < COMP_INITIAL_LISTENERS; j++) { const h = () => {}; addFn(instance, h); initialHandlers.push(h); }
+                for (let j = 0; j < COMP_INITIAL_LISTENERS; j++) { const h = () => {void j;}; addFn(instance, h); initialHandlers.push(h); }
                 instances.push({ instance, handlers: initialHandlers });
             }
             end = performance.now();
@@ -58,7 +58,7 @@ export function runComprehensiveBenchmark(config) {
             start = performance.now();
             const midPoint = Math.floor(COMP_INSTANCE_COUNT / 2);
             for (let i = 0; i < COMP_INSTANCE_COUNT; i++) {
-                if (i < midPoint) { for (let j = 0; j < COMP_ADD_LISTENERS; j++) { const h = () => {}; addFn(instances[i].instance, h); instances[i].handlers.push(h); } }
+                if (i < midPoint) { for (let j = 0; j < COMP_ADD_LISTENERS; j++) { const h = () => {void j;}; addFn(instances[i].instance, h); instances[i].handlers.push(h); } }
                 else { for (let j = 0; j < COMP_REMOVE_LISTENERS; j++) if (instances[i].handlers.length > 0) { const idx = Math.floor(Math.random() * instances[i].handlers.length); const h = instances[i].handlers.splice(idx, 1)[0]; removeFn(instances[i].instance, h); } }
             }
             end = performance.now();
@@ -72,7 +72,7 @@ export function runComprehensiveBenchmark(config) {
 
             // Phase 5: Add final listeners
             start = performance.now();
-            for (let i = 0; i < COMP_INSTANCE_COUNT; i++) for (let j = 0; j < COMP_FINAL_ADD_LISTENERS; j++) { const h = () => {}; addFn(instances[i].instance, h); instances[i].handlers.push(h); }
+            for (let i = 0; i < COMP_INSTANCE_COUNT; i++) for (let j = 0; j < COMP_FINAL_ADD_LISTENERS; j++) { const h = () => {void i;}; addFn(instances[i].instance, h); instances[i].handlers.push(h); }
             end = performance.now();
             phaseTimes.phase5 += (end - start);
 
@@ -90,7 +90,7 @@ export function runComprehensiveBenchmark(config) {
                 // 各サイクルでonceリスナーを追加
                 for (let i = 0; i < COMP_INSTANCE_COUNT; i++) {
                     for (let j = 0; j < Math.ceil(COMP_INITIAL_LISTENERS / 2); j++) { // 少し少なめのリスナー数
-                        const h = () => {};
+                        const h = () => {void i; void j;};
                         addOnceFn(instances[i].instance, h);
                     }
                 }
