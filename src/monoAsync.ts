@@ -16,9 +16,9 @@ export function monoAsync<T>(options: AsyncEventOptions & EmitterOptions = {}): 
   // Create instance with shared methods
   const instance = Object.create(monoAsyncProto);
 
-  // Add instance-specific properties
-  instance.listeners = new Map();
-  instance.onceListeners = new Map();
+  // Add instance-specific properties (listeners are lazily initialized)
+  instance.listeners = null;
+  instance.onceListeners = null;
   instance.parallel = parallel;
   instance.continueOnError = continueOnError;
   instance.logErrors = logErrors;

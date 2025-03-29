@@ -48,14 +48,23 @@ function shuffleArray(array) {
 
 
 // Benchmark configuration
-const ITERATIONS = 500000; // Number of iterations for each test
-const LISTENER_COUNT = 500; // Number of listeners to attach
-const REMOVAL_ITERATIONS = 10000; // Reduced iterations for removal tests to avoid memory issues
+const ITERATIONS = 500000; // Number of iterations for registration/emission tests
+const LISTENER_COUNT = 500; // Number of listeners for emission tests
+const REMOVAL_ITERATIONS = 10000; // Iterations for removal tests
+const MULTI_INSTANCE_COUNT = ITERATIONS / 10; // Number of instances for multi-instance registration test
+const LISTENERS_PER_MULTI_INSTANCE = 10; // Listeners per instance for multi-instance registration test
+const MEMORY_INSTANCE_COUNT = 10000; // Base number of instances for memory tests
+const MEMORY_LISTENERS = 100; // Listeners per instance for memory test with listeners
+const MEMORY_INSTANCE_COUNT_WITH_LISTENERS = MEMORY_INSTANCE_COUNT / 10; // Adjusted instance count for memory test with listeners
 
 console.log('\n=== Event Libraries Performance Benchmark ===');
-console.log(`Iterations: ${formatNumber(ITERATIONS)}`);
-console.log(`Listeners per event: ${LISTENER_COUNT}`);
+console.log(`Iterations (Register/Emit): ${formatNumber(ITERATIONS)}`);
+console.log(`Listeners per event (Emit): ${LISTENER_COUNT}`);
 console.log(`Removal Iterations: ${formatNumber(REMOVAL_ITERATIONS)}`);
+console.log(`Multi-Instance Count (Register): ${formatNumber(MULTI_INSTANCE_COUNT)}`);
+console.log(`Listeners per Multi-Instance (Register): ${LISTENERS_PER_MULTI_INSTANCE}`);
+console.log(`Memory Instance Count: ${formatNumber(MEMORY_INSTANCE_COUNT)}`);
+console.log(`Memory Listeners per Instance: ${MEMORY_LISTENERS}`);
 console.log('\n');
 
 // ===== Initialization Benchmark =====
@@ -101,64 +110,124 @@ const rxjsInitTime = measureTimeAverage(() => {
 });
 console.log(`RxJS: ${rxjsInitTime.toFixed(3)} ms`);
 
-// ===== Listener Registration Benchmark =====
-console.log('\n----- Listener Registration Time (add only) (average of 3 runs) -----');
+// ===== Listener Registration Benchmark (Single Instance) =====
+console.log('\n----- Listener Registration Time (Single Instance) (average of 3 runs) -----');
 
 // mono-event
-const monoEvent = mono();
-const monoRegisterTime = measureTimeAverage(() => {
+const monoEventSingle = mono();
+const monoRegisterSingleTime = measureTimeAverage(() => {
   for (let i = 0; i < ITERATIONS; i++) {
-    const handler = () => {
-    };
-    monoEvent.add(handler);
+    const handler = () => {};
+    monoEventSingle.add(handler);
   }
 });
-console.log(`mono-event: ${monoRegisterTime.toFixed(3)} ms`);
+console.log(`mono-event: ${monoRegisterSingleTime.toFixed(3)} ms`);
 
 // EventEmitter3
-const ee3 = new EventEmitter3();
-const ee3RegisterTime = measureTimeAverage(() => {
+const ee3Single = new EventEmitter3();
+const ee3RegisterSingleTime = measureTimeAverage(() => {
   for (let i = 0; i < ITERATIONS; i++) {
-    const handler = () => {
-    };
-    ee3.on('event', handler);
+    const handler = () => {};
+    ee3Single.on('event', handler);
   }
 });
-console.log(`EventEmitter3: ${ee3RegisterTime.toFixed(3)} ms`);
+console.log(`EventEmitter3: ${ee3RegisterSingleTime.toFixed(3)} ms`);
 
 // mitt
-const mittEmitter = mitt();
-const mittRegisterTime = measureTimeAverage(() => {
+const mittEmitterSingle = mitt();
+const mittRegisterSingleTime = measureTimeAverage(() => {
   for (let i = 0; i < ITERATIONS; i++) {
-    const handler = () => {
-    };
-    mittEmitter.on('event', handler);
+    const handler = () => {};
+    mittEmitterSingle.on('event', handler);
   }
 });
-console.log(`mitt: ${mittRegisterTime.toFixed(3)} ms`);
+console.log(`mitt: ${mittRegisterSingleTime.toFixed(3)} ms`);
 
 // nanoevents
-const nanoEmitter = createNanoEvents();
-const nanoRegisterTime = measureTimeAverage(() => {
+const nanoEmitterSingle = createNanoEvents();
+const nanoRegisterSingleTime = measureTimeAverage(() => {
   for (let i = 0; i < ITERATIONS; i++) {
-    const handler = () => {
-    };
-    nanoEmitter.on('event', handler);
+    const handler = () => {};
+    nanoEmitterSingle.on('event', handler);
   }
 });
-console.log(`nanoevents: ${nanoRegisterTime.toFixed(3)} ms`);
+console.log(`nanoevents: ${nanoRegisterSingleTime.toFixed(3)} ms`);
 
 // RxJS
-const rxjsSubject = new Subject();
-const rxjsRegisterTime = measureTimeAverage(() => {
+const rxjsSubjectSingle = new Subject();
+const rxjsRegisterSingleTime = measureTimeAverage(() => {
   for (let i = 0; i < ITERATIONS; i++) {
-    const handler = () => {
-    };
-    const subscription = rxjsSubject.subscribe(handler);
+    const handler = () => {};
+    const subscription = rxjsSubjectSingle.subscribe(handler);
     // Note: We're not unsubscribing here to match the behavior of other libraries in this test
   }
 });
-console.log(`RxJS: ${rxjsRegisterTime.toFixed(3)} ms`);
+console.log(`RxJS: ${rxjsRegisterSingleTime.toFixed(3)} ms`);
+
+
+// ===== Listener Registration Benchmark (Multi-Instance) =====
+console.log(`\n----- Listener Registration Time (Multi-Instance: ${formatNumber(MULTI_INSTANCE_COUNT)} instances, ${LISTENERS_PER_MULTI_INSTANCE} listeners each) (average of 3 runs) -----`);
+
+// mono-event
+const monoRegisterMultiTime = measureTimeAverage(() => {
+  for (let i = 0; i < MULTI_INSTANCE_COUNT; i++) {
+    const event = mono();
+    for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) {
+      const handler = () => {};
+      event.add(handler);
+    }
+  }
+});
+console.log(`mono-event: ${monoRegisterMultiTime.toFixed(3)} ms`);
+
+// EventEmitter3
+const ee3RegisterMultiTime = measureTimeAverage(() => {
+  for (let i = 0; i < MULTI_INSTANCE_COUNT; i++) {
+    const emitter = new EventEmitter3();
+    for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) {
+      const handler = () => {};
+      emitter.on('event', handler);
+    }
+  }
+});
+console.log(`EventEmitter3: ${ee3RegisterMultiTime.toFixed(3)} ms`);
+
+// mitt
+const mittRegisterMultiTime = measureTimeAverage(() => {
+  for (let i = 0; i < MULTI_INSTANCE_COUNT; i++) {
+    const emitter = mitt();
+    for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) {
+      const handler = () => {};
+      emitter.on('event', handler);
+    }
+  }
+});
+console.log(`mitt: ${mittRegisterMultiTime.toFixed(3)} ms`);
+
+// nanoevents
+const nanoRegisterMultiTime = measureTimeAverage(() => {
+  for (let i = 0; i < MULTI_INSTANCE_COUNT; i++) {
+    const emitter = createNanoEvents();
+    for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) {
+      const handler = () => {};
+      emitter.on('event', handler);
+    }
+  }
+});
+console.log(`nanoevents: ${nanoRegisterMultiTime.toFixed(3)} ms`);
+
+// RxJS
+const rxjsRegisterMultiTime = measureTimeAverage(() => {
+  for (let i = 0; i < MULTI_INSTANCE_COUNT; i++) {
+    const subject = new Subject();
+    for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) {
+      const handler = () => {};
+      const subscription = subject.subscribe(handler);
+    }
+  }
+});
+console.log(`RxJS: ${rxjsRegisterMultiTime.toFixed(3)} ms`);
+
 
 // ===== Listener Removal Benchmark (Forward) =====
 console.log('\n----- Listener Removal Time (Forward) (average of 3 runs) -----');
@@ -182,8 +251,7 @@ function runRemovalBenchmarkForward() {
   const rxjsRemove = new Subject();
 
   for (let i = 0; i < REMOVAL_ITERATIONS; i++) {
-    const handler = () => {
-    };
+    const handler = () => {};
     handlers.mono.push(handler);
     monoRemoveEvent.add(handler);
 
@@ -297,8 +365,7 @@ function runRemovalBenchmarkBackward() {
   const rxjsRemove = new Subject();
 
   for (let i = 0; i < REMOVAL_ITERATIONS; i++) {
-    const handler = () => {
-    };
+    const handler = () => {};
     handlers.mono.push(handler);
     monoRemoveEvent.add(handler);
 
@@ -415,8 +482,7 @@ function runRemovalBenchmarkRandom() {
   const indices = [];
   for (let i = 0; i < REMOVAL_ITERATIONS; i++) {
     indices.push(i);
-    const handler = () => {
-    };
+    const handler = () => {};
     handlers.mono.push(handler);
     monoRemoveEvent.add(handler);
 
@@ -763,15 +829,14 @@ console.log(`RxJS: ${rxjsEmitOnceTime.toFixed(3)} ms`);
 // Note: Memory usage tests require running Node with --expose-gc flag
 console.log('\n----- Memory Usage (requires --expose-gc) -----');
 
-// Function to measure memory usage for a specific operation
-function measureMemoryUsage(createFn, count = 10000) {
+// Function to measure memory usage for creating instances (no listeners)
+function measureMemoryUsageEmpty(createFn, count = MEMORY_INSTANCE_COUNT) {
   // Force garbage collection if available
   if (typeof global !== 'undefined' && global.gc) {
     global.gc();
   } else if (typeof Bun !== 'undefined' && Bun.gc) {
      Bun.gc(true); // Force GC in Bun
   }
-
 
   const startMemory = process.memoryUsage().heapUsed;
   const instances = [];
@@ -791,46 +856,122 @@ function measureMemoryUsage(createFn, count = 10000) {
      Bun.gc(true); // Force GC in Bun
   }
 
-
   return {
     total: used,
     perInstance: used / count,
   };
 }
 
+// Function to measure memory usage for creating instances with listeners
+function measureMemoryUsageWithListeners(createFn, addListenerFn, listenerCount = MEMORY_LISTENERS, instanceCount = MEMORY_INSTANCE_COUNT_WITH_LISTENERS) {
+  // Force garbage collection if available
+  if (typeof global !== 'undefined' && global.gc) {
+    global.gc();
+  } else if (typeof Bun !== 'undefined' && Bun.gc) {
+     Bun.gc(true); // Force GC in Bun
+  }
+
+  const startMemory = process.memoryUsage().heapUsed;
+  const instances = [];
+  const handlers = []; // Create unique handlers to prevent unintended sharing/optimization
+  for(let i = 0; i < listenerCount; i++) {
+      handlers.push(() => {});
+  }
+
+
+  for (let i = 0; i < instanceCount; i++) {
+    const instance = createFn();
+    for (let j = 0; j < listenerCount; j++) {
+        addListenerFn(instance, handlers[j]);
+    }
+    instances.push(instance);
+  }
+
+  const endMemory = process.memoryUsage().heapUsed;
+  const used = endMemory - startMemory;
+
+  // Clear instances to allow GC
+  instances.length = 0;
+  handlers.length = 0;
+   if (typeof global !== 'undefined' && global.gc) {
+    global.gc();
+  } else if (typeof Bun !== 'undefined' && Bun.gc) {
+     Bun.gc(true); // Force GC in Bun
+  }
+
+  return {
+    total: used,
+    perInstance: used / instanceCount,
+  };
+}
+
+
 // Only run memory tests if gc is available
-let monoMemory;
-let ee3Memory;
-let mittMemory;
-let nanoMemory;
-let rxjsMemory;
+let monoMemoryEmpty;
+let ee3MemoryEmpty;
+let mittMemoryEmpty;
+let nanoMemoryEmpty;
+let rxjsMemoryEmpty;
+let monoMemoryWithListeners;
+let ee3MemoryWithListeners;
+let mittMemoryWithListeners;
+let nanoMemoryWithListeners;
+let rxjsMemoryWithListeners;
 let memoryTestRun = false;
+
 if ((typeof global !== 'undefined' && global.gc) || (typeof Bun !== 'undefined' && Bun.gc)) {
   memoryTestRun = true;
-  monoMemory = measureMemoryUsage(() => mono());
-  ee3Memory = measureMemoryUsage(() => new EventEmitter3());
-  mittMemory = measureMemoryUsage(() => mitt());
-  nanoMemory = measureMemoryUsage(() => createNanoEvents());
-  rxjsMemory = measureMemoryUsage(() => new Subject());
+  console.log(`\n--- Memory Usage (Empty Instances, ${formatNumber(MEMORY_INSTANCE_COUNT)} instances) ---`);
+  monoMemoryEmpty = measureMemoryUsageEmpty(() => mono());
+  ee3MemoryEmpty = measureMemoryUsageEmpty(() => new EventEmitter3());
+  mittMemoryEmpty = measureMemoryUsageEmpty(() => mitt());
+  nanoMemoryEmpty = measureMemoryUsageEmpty(() => createNanoEvents());
+  rxjsMemoryEmpty = measureMemoryUsageEmpty(() => new Subject());
 
-  console.log(`mono-event: ${(monoMemory.perInstance / 1024).toFixed(2)} KB per instance`);
-  console.log(`EventEmitter3: ${(ee3Memory.perInstance / 1024).toFixed(2)} KB per instance`);
-  console.log(`mitt: ${(mittMemory.perInstance / 1024).toFixed(2)} KB per instance`);
-  console.log(`nanoevents: ${(nanoMemory.perInstance / 1024).toFixed(2)} KB per instance`);
-  console.log(`RxJS: ${(rxjsMemory.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`mono-event: ${(monoMemoryEmpty.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`EventEmitter3: ${(ee3MemoryEmpty.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`mitt: ${(mittMemoryEmpty.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`nanoevents: ${(nanoMemoryEmpty.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`RxJS: ${(rxjsMemoryEmpty.perInstance / 1024).toFixed(2)} KB per instance`);
+
+  console.log(`\n--- Memory Usage (With ${MEMORY_LISTENERS} Listeners, ${formatNumber(MEMORY_INSTANCE_COUNT_WITH_LISTENERS)} instances) ---`);
+  monoMemoryWithListeners = measureMemoryUsageWithListeners(() => mono(), (inst, h) => inst.add(h));
+  ee3MemoryWithListeners = measureMemoryUsageWithListeners(() => new EventEmitter3(), (inst, h) => inst.on('event', h));
+  mittMemoryWithListeners = measureMemoryUsageWithListeners(() => mitt(), (inst, h) => inst.on('event', h));
+  nanoMemoryWithListeners = measureMemoryUsageWithListeners(() => createNanoEvents(), (inst, h) => inst.on('event', h));
+  rxjsMemoryWithListeners = measureMemoryUsageWithListeners(() => new Subject(), (inst, h) => inst.subscribe(h));
+
+  console.log(`mono-event: ${(monoMemoryWithListeners.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`EventEmitter3: ${(ee3MemoryWithListeners.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`mitt: ${(mittMemoryWithListeners.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`nanoevents: ${(nanoMemoryWithListeners.perInstance / 1024).toFixed(2)} KB per instance`);
+  console.log(`RxJS: ${(rxjsMemoryWithListeners.perInstance / 1024).toFixed(2)} KB per instance`);
+
 } else {
   console.log('Memory usage test skipped. Run with --expose-gc (Node) or ensure Bun version supports Bun.gc.');
 }
 
 // ===== Summary =====
 console.log('\n----- Performance Summary (lower is better) -----');
+// Adjust padding based on the longest number in each column
+const padInit = 9;
+const padRegSingle = 18; // Register (Single)
+const padRegMulti = 17; // Register (Multi)
+const padRemFwd = 17;
+const padRemBwd = 17;
+const padRemRnd = 17;
+const padEmit = 9;
+const padEmitOnce = 14;
+const padMemEmpty = 16; // Memory (Empty)
+const padMemListeners = 19; // Memory (Listeners)
+
 console.log(`
-  | Library          | Init (ms) | Register (ms) | Remove (Fwd) (ms) | Remove (Bwd) (ms) | Remove (Rnd) (ms) | Emit (ms) | Emit Once (ms) | Memory (KB/inst) |
-  |------------------|-----------|---------------|-------------------|-------------------|-------------------|-----------|----------------|------------------|
-  | mono-event       | ${monoInitTime.toFixed(3).padStart(9)} | ${monoRegisterTime.toFixed(3).padStart(13)} | ${monoRemoveFwdTime.toFixed(3).padStart(17)} | ${monoRemoveBwdTime.toFixed(3).padStart(17)} | ${monoRemoveRndTime.toFixed(3).padStart(17)} | ${monoEmitTime.toFixed(3).padStart(9)} | ${monoEmitOnceTime.toFixed(3).padStart(14)} | ${memoryTestRun ? (monoMemory.perInstance / 1024).toFixed(2).padStart(16) : 'N/A'.padStart(16)} |
-  |  Restrict        | ${'-'.padStart(9)} | ${'-'.padStart(13)} | ${'-'.padStart(17)} | ${'-'.padStart(17)} | ${'-'.padStart(17)} | ${restrictEmitTime.toFixed(3).padStart(9)} | ${'-'.padStart(14)} | ${'-'.padStart(16)} |
-  | EventEmitter3    | ${ee3InitTime.toFixed(3).padStart(9)} | ${ee3RegisterTime.toFixed(3).padStart(13)} | ${ee3RemoveFwdTime.toFixed(3).padStart(17)} | ${ee3RemoveBwdTime.toFixed(3).padStart(17)} | ${ee3RemoveRndTime.toFixed(3).padStart(17)} | ${ee3EmitTime.toFixed(3).padStart(9)} | ${ee3EmitOnceTime.toFixed(3).padStart(14)} | ${memoryTestRun ? (ee3Memory.perInstance / 1024).toFixed(2).padStart(16) : 'N/A'.padStart(16)} |
-  | mitt             | ${mittInitTime.toFixed(3).padStart(9)} | ${mittRegisterTime.toFixed(3).padStart(13)} | ${mittRemoveFwdTime.toFixed(3).padStart(17)} | ${mittRemoveBwdTime.toFixed(3).padStart(17)} | ${mittRemoveRndTime.toFixed(3).padStart(17)} | ${mittEmitTime.toFixed(3).padStart(9)} | ${mittEmitOnceTime.toFixed(3).padStart(14)} | ${memoryTestRun ? (mittMemory.perInstance / 1024).toFixed(2).padStart(16) : 'N/A'.padStart(16)} |
-  | nanoevents       | ${nanoInitTime.toFixed(3).padStart(9)} | ${nanoRegisterTime.toFixed(3).padStart(13)} | ${nanoRemoveFwdTime.toFixed(3).padStart(17)} | ${nanoRemoveBwdTime.toFixed(3).padStart(17)} | ${nanoRemoveRndTime.toFixed(3).padStart(17)} | ${nanoEmitTime.toFixed(3).padStart(9)} | ${nanoEmitOnceTime.toFixed(3).padStart(14)} | ${memoryTestRun ? (nanoMemory.perInstance / 1024).toFixed(2).padStart(16) : 'N/A'.padStart(16)} |
-  | RxJS             | ${rxjsInitTime.toFixed(3).padStart(9)} | ${rxjsRegisterTime.toFixed(3).padStart(13)} | ${rxjsRemoveFwdTime.toFixed(3).padStart(17)} | ${rxjsRemoveBwdTime.toFixed(3).padStart(17)} | ${rxjsRemoveRndTime.toFixed(3).padStart(17)} | ${rxjsEmitTime.toFixed(3).padStart(9)} | ${rxjsEmitOnceTime.toFixed(3).padStart(14)} | ${memoryTestRun ? (rxjsMemory.perInstance / 1024).toFixed(2).padStart(16) : 'N/A'.padStart(16)} |
+  | Library          | Init (ms) | Register (Single) (ms) | Register (Multi) (ms) | Remove (Fwd) (ms) | Remove (Bwd) (ms) | Remove (Rnd) (ms) | Emit (ms) | Emit Once (ms) | Memory (Empty) (KB/inst) | Memory (${MEMORY_LISTENERS} Listeners) (KB/inst) |
+  |------------------|-----------|--------------------------|-----------------------|-------------------|-------------------|-------------------|-----------|----------------|--------------------------|------------------------------------|
+  | mono-event       | ${monoInitTime.toFixed(3).padStart(padInit)} | ${monoRegisterSingleTime.toFixed(3).padStart(padRegSingle)} | ${monoRegisterMultiTime.toFixed(3).padStart(padRegMulti)} | ${monoRemoveFwdTime.toFixed(3).padStart(padRemFwd)} | ${monoRemoveBwdTime.toFixed(3).padStart(padRemBwd)} | ${monoRemoveRndTime.toFixed(3).padStart(padRemRnd)} | ${monoEmitTime.toFixed(3).padStart(padEmit)} | ${monoEmitOnceTime.toFixed(3).padStart(padEmitOnce)} | ${memoryTestRun ? (monoMemoryEmpty.perInstance / 1024).toFixed(2).padStart(padMemEmpty) : 'N/A'.padStart(padMemEmpty)} | ${memoryTestRun ? (monoMemoryWithListeners.perInstance / 1024).toFixed(2).padStart(padMemListeners) : 'N/A'.padStart(padMemListeners)} |
+  |  Restrict        | ${'-'.padStart(padInit)} | ${'-'.padStart(padRegSingle)} | ${'-'.padStart(padRegMulti)} | ${'-'.padStart(padRemFwd)} | ${'-'.padStart(padRemBwd)} | ${'-'.padStart(padRemRnd)} | ${restrictEmitTime.toFixed(3).padStart(padEmit)} | ${'-'.padStart(padEmitOnce)} | ${'-'.padStart(padMemEmpty)} | ${'-'.padStart(padMemListeners)} |
+  | EventEmitter3    | ${ee3InitTime.toFixed(3).padStart(padInit)} | ${ee3RegisterSingleTime.toFixed(3).padStart(padRegSingle)} | ${ee3RegisterMultiTime.toFixed(3).padStart(padRegMulti)} | ${ee3RemoveFwdTime.toFixed(3).padStart(padRemFwd)} | ${ee3RemoveBwdTime.toFixed(3).padStart(padRemBwd)} | ${ee3RemoveRndTime.toFixed(3).padStart(padRemRnd)} | ${ee3EmitTime.toFixed(3).padStart(padEmit)} | ${ee3EmitOnceTime.toFixed(3).padStart(padEmitOnce)} | ${memoryTestRun ? (ee3MemoryEmpty.perInstance / 1024).toFixed(2).padStart(padMemEmpty) : 'N/A'.padStart(padMemEmpty)} | ${memoryTestRun ? (ee3MemoryWithListeners.perInstance / 1024).toFixed(2).padStart(padMemListeners) : 'N/A'.padStart(padMemListeners)} |
+  | mitt             | ${mittInitTime.toFixed(3).padStart(padInit)} | ${mittRegisterSingleTime.toFixed(3).padStart(padRegSingle)} | ${mittRegisterMultiTime.toFixed(3).padStart(padRegMulti)} | ${mittRemoveFwdTime.toFixed(3).padStart(padRemFwd)} | ${mittRemoveBwdTime.toFixed(3).padStart(padRemBwd)} | ${mittRemoveRndTime.toFixed(3).padStart(padRemRnd)} | ${mittEmitTime.toFixed(3).padStart(padEmit)} | ${mittEmitOnceTime.toFixed(3).padStart(padEmitOnce)} | ${memoryTestRun ? (mittMemoryEmpty.perInstance / 1024).toFixed(2).padStart(padMemEmpty) : 'N/A'.padStart(padMemEmpty)} | ${memoryTestRun ? (mittMemoryWithListeners.perInstance / 1024).toFixed(2).padStart(padMemListeners) : 'N/A'.padStart(padMemListeners)} |
+  | nanoevents       | ${nanoInitTime.toFixed(3).padStart(padInit)} | ${nanoRegisterSingleTime.toFixed(3).padStart(padRegSingle)} | ${nanoRegisterMultiTime.toFixed(3).padStart(padRegMulti)} | ${nanoRemoveFwdTime.toFixed(3).padStart(padRemFwd)} | ${nanoRemoveBwdTime.toFixed(3).padStart(padRemBwd)} | ${nanoRemoveRndTime.toFixed(3).padStart(padRemRnd)} | ${nanoEmitTime.toFixed(3).padStart(padEmit)} | ${nanoEmitOnceTime.toFixed(3).padStart(padEmitOnce)} | ${memoryTestRun ? (nanoMemoryEmpty.perInstance / 1024).toFixed(2).padStart(padMemEmpty) : 'N/A'.padStart(padMemEmpty)} | ${memoryTestRun ? (nanoMemoryWithListeners.perInstance / 1024).toFixed(2).padStart(padMemListeners) : 'N/A'.padStart(padMemListeners)} |
+  | RxJS             | ${rxjsInitTime.toFixed(3).padStart(padInit)} | ${rxjsRegisterSingleTime.toFixed(3).padStart(padRegSingle)} | ${rxjsRegisterMultiTime.toFixed(3).padStart(padRegMulti)} | ${rxjsRemoveFwdTime.toFixed(3).padStart(padRemFwd)} | ${rxjsRemoveBwdTime.toFixed(3).padStart(padRemBwd)} | ${rxjsRemoveRndTime.toFixed(3).padStart(padRemRnd)} | ${rxjsEmitTime.toFixed(3).padStart(padEmit)} | ${rxjsEmitOnceTime.toFixed(3).padStart(padEmitOnce)} | ${memoryTestRun ? (rxjsMemoryEmpty.perInstance / 1024).toFixed(2).padStart(padMemEmpty) : 'N/A'.padStart(padMemEmpty)} | ${memoryTestRun ? (rxjsMemoryWithListeners.perInstance / 1024).toFixed(2).padStart(padMemListeners) : 'N/A'.padStart(padMemListeners)} |
 `);

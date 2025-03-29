@@ -16,11 +16,11 @@ export function mono<T>(options: EmitterOptions = {}): MonoEvent<T> {
   // Create instance with shared methods
   const instance = Object.create(monoProto);
 
-  
-    // Add instance-specific properties
-    instance.listeners = new Map();
-    instance.onceListeners = new Map();
-    instance.continueOnError = continueOnError;
-    instance.logErrors = logErrors;
+  // Add instance-specific properties (listeners are lazily initialized)
+  instance.listeners = null;
+  instance.onceListeners = null;
+  instance.continueOnError = continueOnError;
+  instance.logErrors = logErrors;
+
   return instance as MonoEvent<T>;
 }
