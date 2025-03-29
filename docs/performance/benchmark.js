@@ -10,6 +10,10 @@ import { runEmissionOnceBenchmark } from './scenarios/emissionOnce.js';
 import { runMemoryEmptyBenchmark } from './scenarios/memoryEmpty.js';
 import { runMemoryListenersBenchmark } from './scenarios/memoryListeners.js';
 import { runComprehensiveBenchmark } from './scenarios/comprehensive.js';
+import {setMaxListeners} from 'node:events';
+
+// Disable max listeners warning for all instances
+setMaxListeners(0);
 
 // --- Argument Parsing ---
 const args = process.argv
