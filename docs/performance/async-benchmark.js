@@ -14,7 +14,7 @@ async function measureAsyncTime(fn) {
 
 // Utility function to format numbers with commas
 function formatNumber(num) {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 // Benchmark configuration
@@ -30,7 +30,7 @@ console.log('\n');
 console.log('\n----- Async Event Emission Time (Sequential) -----');
 
 // Setup for emission tests - create a small delay function
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const asyncHandler = async () => {
   await delay(0); // Minimal delay to simulate async work
 };
@@ -56,7 +56,11 @@ const ee3AsyncEmitTime = await measureAsyncTime(async () => {
   for (let i = 0; i < ITERATIONS; i++) {
     ee3Async.emit('event');
     // Need to manually wait for all async handlers to complete
-    await Promise.all(Array(LISTENER_COUNT).fill().map(() => delay(0)));
+    await Promise.all(
+      Array(LISTENER_COUNT)
+        .fill()
+        .map(() => delay(0)),
+    );
   }
 });
 console.log(`EventEmitter3 (manual async): ${ee3AsyncEmitTime.toFixed(3)} ms`);
@@ -70,7 +74,11 @@ const mittAsyncEmitTime = await measureAsyncTime(async () => {
   for (let i = 0; i < ITERATIONS; i++) {
     mittAsync.emit('event');
     // Need to manually wait for all async handlers to complete
-    await Promise.all(Array(LISTENER_COUNT).fill().map(() => delay(0)));
+    await Promise.all(
+      Array(LISTENER_COUNT)
+        .fill()
+        .map(() => delay(0)),
+    );
   }
 });
 console.log(`mitt (manual async): ${mittAsyncEmitTime.toFixed(3)} ms`);
@@ -84,7 +92,11 @@ const nanoAsyncEmitTime = await measureAsyncTime(async () => {
   for (let i = 0; i < ITERATIONS; i++) {
     nanoAsync.emit('event');
     // Need to manually wait for all async handlers to complete
-    await Promise.all(Array(LISTENER_COUNT).fill().map(() => delay(0)));
+    await Promise.all(
+      Array(LISTENER_COUNT)
+        .fill()
+        .map(() => delay(0)),
+    );
   }
 });
 console.log(`nanoevents (manual async): ${nanoAsyncEmitTime.toFixed(3)} ms`);
@@ -129,7 +141,7 @@ const mittAsyncParallelEmitTime = await measureAsyncTime(async () => {
   for (let i = 0; i < ITERATIONS; i++) {
     // For mitt, we need to manually track and execute all handlers in parallel
     const handlers = mittAsyncParallel.all.event || [];
-    await Promise.all(handlers.map(handler => handler()));
+    await Promise.all(handlers.map((handler) => handler()));
   }
 });
 console.log(`mitt (manual parallel): ${mittAsyncParallelEmitTime.toFixed(3)} ms`);

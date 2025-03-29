@@ -2,7 +2,7 @@
  * Synchronous event type definitions
  */
 
-import type {EventOptions} from './common';
+import type { EventOptions } from './common';
 
 /**
  * Type definition for a synchronous event handler

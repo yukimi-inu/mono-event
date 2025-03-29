@@ -2,9 +2,9 @@
  * Restricted asynchronous event implementation
  */
 
-import type {AsyncEventOptions, EmitterOptions} from './types';
-import type {MonoRestrictedAsyncEvent} from './types/async';
-import {monoRestrictAsyncEmitProto, monoRestrictAsyncEventProto} from './utils';
+import type { AsyncEventOptions, EmitterOptions } from './types';
+import type { MonoRestrictedAsyncEvent } from './types/async';
+import { monoRestrictAsyncEmitProto, monoRestrictAsyncEventProto } from './utils';
 
 /**
  * Creates a new restricted asynchronous event with separated emission control
@@ -14,7 +14,7 @@ export function monoRestrictAsync<T>(options: AsyncEventOptions & EmitterOptions
   emit: (args: T) => Promise<void>;
 } {
   // Set options with defaults
-  const {parallel = false, continueOnError = false, logErrors = false} = options;
+  const { parallel = false, continueOnError = false, logErrors = false } = options;
 
   // Create event instance with shared methods
   const eventInstance = Object.create(monoRestrictAsyncEventProto);

@@ -48,8 +48,7 @@ export function shuffleArray(array) {
   while (currentIndex !== 0) {
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [
-      array[randomIndex], array[currentIndex]];
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
   }
   return array;
 }
@@ -63,10 +62,10 @@ export function shuffleArray(array) {
  * @returns {string} Formatted result string or 'N/A'.
  */
 export function formatResult(value, pad = 0, precision = 3) {
-    if (typeof value === 'number' && !Number.isNaN(value)) {
-        return value.toFixed(precision).padStart(pad);
-    }
-    return 'N/A'.padStart(pad);
+  if (typeof value === 'number' && !Number.isNaN(value)) {
+    return value.toFixed(precision).padStart(pad);
+  }
+  return 'N/A'.padStart(pad);
 }
 
 /**
@@ -78,21 +77,21 @@ export function formatResult(value, pad = 0, precision = 3) {
  * @returns {string} Formatted memory string in KB or 'N/A'.
  */
 export function formatMemory(memResult, pad = 0) {
-    if (memResult && typeof memResult.perInstance === 'number' && !Number.isNaN(memResult.perInstance)) {
-        return (memResult.perInstance / 1024).toFixed(2).padStart(pad);
-    }
-    return 'N/A'.padStart(pad);
+  if (memResult && typeof memResult.perInstance === 'number' && !Number.isNaN(memResult.perInstance)) {
+    return (memResult.perInstance / 1024).toFixed(2).padStart(pad);
+  }
+  return 'N/A'.padStart(pad);
 }
 
 /**
  * Forces garbage collection if available in the environment (Node or Bun).
  */
 export function forceGC() {
-    if (typeof global !== 'undefined' && global.gc) {
-        global.gc();
-    } else if (typeof Bun !== 'undefined' && Bun.gc) {
-        Bun.gc(true); // Force GC in Bun
-    }
+  if (typeof global !== 'undefined' && global.gc) {
+    global.gc();
+  } else if (typeof Bun !== 'undefined' && Bun.gc) {
+    Bun.gc(true); // Force GC in Bun
+  }
 }
 
 /**
@@ -107,18 +106,18 @@ export function forceGC() {
  */
 export function generateTable(options) {
   const { headers, rows, formatters = [], paddings = [], alignRight = false } = options;
-  
+
   if (!headers || !rows) {
     return '  No data available.\n';
   }
-  
+
   // 各列の最大幅を計算（パディングが指定されていない場合）
   const columnWidths = headers.map((header, colIndex) => {
     // パディングが指定されている場合はそれを使用
     if (paddings[colIndex]) {
       return paddings[colIndex];
     }
-    
+
     // そうでなければ最大幅を計算
     let maxWidth = header.length;
     for (const row of rows) {
@@ -128,36 +127,40 @@ export function generateTable(options) {
     }
     return maxWidth;
   });
-  
-  // ヘッダー行を生成
-  const headerRow = `  | ${headers.map((header, i) => {
-    return alignRight ? header.padStart(columnWidths[i]) : header.padEnd(columnWidths[i]);
-  }).join(' | ')} |`;
-  
-  // 区切り行を生成
-  const separator = `  |${columnWidths.map(width => '-'.repeat(width + 2)).join('|')}|`;
-  
-  // データ行を生成
-  const dataRows = rows.map(row => {
-    return `  | ${row.map((cell, i) => {
-      // セルが未定義または null の場合は N/A を表示
-      if (cell === undefined || cell === null) {
-        return 'N/A'.padEnd(columnWidths[i]);
-      }
-      
-      // フォーマッターが指定されている場合はそれを使用
-      const formatter = formatters[i] || (v => String(v));
-      const formattedValue = formatter(cell);
-      
-      // 数値は右揃え、それ以外は左揃え（alignRightが指定されている場合）
-      if (alignRight && typeof cell === 'number') {
-        return formattedValue.padStart(columnWidths[i]);
-      }
 
-      return formattedValue.padEnd(columnWidths[i]);
-    }).join(' | ')} |`;
+  // ヘッダー行を生成
+  const headerRow = `  | ${headers
+    .map((header, i) => {
+      return alignRight ? header.padStart(columnWidths[i]) : header.padEnd(columnWidths[i]);
+    })
+    .join(' | ')} |`;
+
+  // 区切り行を生成
+  const separator = `  |${columnWidths.map((width) => '-'.repeat(width + 2)).join('|')}|`;
+
+  // データ行を生成
+  const dataRows = rows.map((row) => {
+    return `  | ${row
+      .map((cell, i) => {
+        // セルが未定義または null の場合は N/A を表示
+        if (cell === undefined || cell === null) {
+          return 'N/A'.padEnd(columnWidths[i]);
+        }
+
+        // フォーマッターが指定されている場合はそれを使用
+        const formatter = formatters[i] || ((v) => String(v));
+        const formattedValue = formatter(cell);
+
+        // 数値は右揃え、それ以外は左揃え（alignRightが指定されている場合）
+        if (alignRight && typeof cell === 'number') {
+          return formattedValue.padStart(columnWidths[i]);
+        }
+
+        return formattedValue.padEnd(columnWidths[i]);
+      })
+      .join(' | ')} |`;
   });
-  
+
   return [headerRow, separator, ...dataRows].join('\n');
 }
 
@@ -171,37 +174,45 @@ export function generateTable(options) {
  */
 export function generateBenchmarkTable(title, libraries, results, columns) {
   // ヘッダーを生成
-  const headers = ['Library', ...columns.map(c => c.header)];
-  
+  const headers = ['Library', ...columns.map((c) => c.header)];
+
   // フォーマッターを生成
   const formatters = [
     // 最初の列（ライブラリ名）のフォーマッター
     (v) => String(v),
     // 残りの列のフォーマッター
-    ...columns.map(c => c.formatFn || ((v) => String(v)))
+    ...columns.map((c) => c.formatFn || ((v) => String(v))),
   ];
-  
+
   // パディングを生成
-  const paddings = [16, ...columns.map(c => c.pad || 10)];
-  
+  const paddings = [16, ...columns.map((c) => c.pad || 10)];
+
   // 行データを生成
-  const rows = libraries.map(lib => {
+  const rows = libraries.map((lib) => {
     let libKey;
-    if (lib === 'mono-event') { libKey = 'mono'; }
-    else if (lib === 'Restrict') { libKey = 'restrict'; }
-    else if (lib === 'EventEmitter3') { libKey = 'ee3'; }
-    else if (lib === 'nanoevents') { libKey = 'nano'; }
-    else if (lib === 'Node Events') { libKey = 'nodeEvents'; }
-    else if (lib === 'EventTarget') { libKey = 'eventTarget'; }
-    else { libKey = lib.toLowerCase(); }
-    
+    if (lib === 'mono-event') {
+      libKey = 'mono';
+    } else if (lib === 'Restrict') {
+      libKey = 'restrict';
+    } else if (lib === 'EventEmitter3') {
+      libKey = 'ee3';
+    } else if (lib === 'nanoevents') {
+      libKey = 'nano';
+    } else if (lib === 'Node Events') {
+      libKey = 'nodeEvents';
+    } else if (lib === 'EventTarget') {
+      libKey = 'eventTarget';
+    } else {
+      libKey = lib.toLowerCase();
+    }
+
     // 最初の列はライブラリ名
     const row = [lib];
-    
+
     // 残りの列はカラム定義に従って値を取得
     for (const column of columns) {
       const key = column.key;
-      
+
       // 結果オブジェクトから値を取得
       let value;
       if (results[libKey]) {
@@ -211,19 +222,19 @@ export function generateBenchmarkTable(title, libraries, results, columns) {
           value = results[libKey][key];
         }
       }
-      
+
       row.push(value);
     }
-    
+
     return row;
   });
-  
+
   // テーブルを生成
   return generateTable({
     headers,
     rows,
     formatters,
     paddings,
-    alignRight: true
+    alignRight: true,
   });
 }

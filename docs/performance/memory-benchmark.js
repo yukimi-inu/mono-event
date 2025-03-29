@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
-import {createNanoEvents} from 'nanoevents';
-import {Subject} from 'rxjs';
+import { createNanoEvents } from 'nanoevents';
+import { Subject } from 'rxjs';
 // Memory usage benchmark for event libraries
-import {mono} from '../../dist/index.min.js';
+import { mono } from '../../dist/index.min.js';
 
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
@@ -127,10 +127,10 @@ function getPackageSize(packageName) {
       }
     }
 
-    return {path: null, size: 0, gzippedSize: 0};
+    return { path: null, size: 0, gzippedSize: 0 };
   } catch (error) {
     console.error(`Error getting package size for ${packageName}:`, error.message);
-    return {path: null, size: 0, gzippedSize: 0};
+    return { path: null, size: 0, gzippedSize: 0 };
   }
 }
 
@@ -245,10 +245,10 @@ function calculateStdDev(values, mean) {
   if (values.length <= 1) return 0;
 
   const variance =
-      values.reduce((acc, val) => {
-        const diff = val - mean;
-        return acc + diff * diff;
-      }, 0) / values.length;
+    values.reduce((acc, val) => {
+      const diff = val - mean;
+      return acc + diff * diff;
+    }, 0) / values.length;
 
   return Math.sqrt(variance);
 }
@@ -327,8 +327,7 @@ console.log('\n===== Scenario 2: Memory Usage with 500 Handlers =====');
 const HANDLER_COUNT = 500; // Number of handlers to register (調整済み)
 
 // Create a dummy handler function
-const dummyHandler = () => {
-};
+const dummyHandler = () => {};
 
 // mono-event with 1000 handlers
 const monoWithHandlersMemory = measureMemoryUsage(() => {
@@ -383,7 +382,9 @@ console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMe
 console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)}`);
 
 // ===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====
-console.log('\n===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====');
+console.log(
+  '\n===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====',
+);
 
 const EVENT_COUNT = 1000;
 const INSTANCE_COUNT = 100;
@@ -452,24 +453,28 @@ const monoMultipleInstancesMemory = measureMemoryUsage(() => {
 });
 
 console.log(
-    `Memory comparison for ${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances vs ${formatNumber(MONO_INSTANCE_COUNT)} mono-event instances:`,
+  `Memory comparison for ${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances vs ${formatNumber(MONO_INSTANCE_COUNT)} mono-event instances:`,
 );
 console.log(
-    `EventEmitter3 (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)}`,
+  `EventEmitter3 (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)}`,
 );
 console.log(
-    `mitt (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)}`,
+  `mitt (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)}`,
 );
 console.log(
-    `nanoevents (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)}`,
+  `nanoevents (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)}`,
 );
 console.log(
-    `RxJS (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)}`,
+  `RxJS (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)}`,
 );
-console.log(`mono-event (${formatNumber(MONO_INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`);
+console.log(
+  `mono-event (${formatNumber(MONO_INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`,
+);
 
 // ===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====
-console.log('\n===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====');
+console.log(
+  '\n===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====',
+);
 
 console.log(`Creating ${formatNumber(MONO_INSTANCE_COUNT)} instances of each library to compare memory usage\n`);
 
@@ -529,11 +534,11 @@ console.log('\n===== Bundle Size Benchmark =====');
 
 // Define libraries to measure
 const libraries = {
-  'mono-event': {path: path.join(rootDir, 'dist', 'index.min.js')},
-  eventemitter3: {package: 'eventemitter3'},
-  mitt: {package: 'mitt'},
-  nanoevents: {package: 'nanoevents'},
-  rxjs: {package: 'rxjs'},
+  'mono-event': { path: path.join(rootDir, 'dist', 'index.min.js') },
+  eventemitter3: { package: 'eventemitter3' },
+  mitt: { package: 'mitt' },
+  nanoevents: { package: 'nanoevents' },
+  rxjs: { package: 'rxjs' },
 };
 
 // Measure bundle sizes
@@ -557,7 +562,7 @@ for (const [library, info] of Object.entries(libraries)) {
     filePath = packageInfo.path || 'Not found';
   }
 
-  bundleSizes[library] = {size, gzippedSize, filePath};
+  bundleSizes[library] = { size, gzippedSize, filePath };
 }
 
 console.log('| Library      | Minified Size | Gzipped Size |');
@@ -565,7 +570,7 @@ console.log('|--------------|---------------|--------------|');
 
 for (const [library, info] of Object.entries(bundleSizes)) {
   console.log(
-      `| ${library.padEnd(12)} | ${formatSize(info.size).padEnd(13)} | ${formatSize(info.gzippedSize).padEnd(12)} |`,
+    `| ${library.padEnd(12)} | ${formatSize(info.size).padEnd(13)} | ${formatSize(info.gzippedSize).padEnd(12)} |`,
   );
 }
 
