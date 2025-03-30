@@ -147,20 +147,31 @@ function emitSyncHandlers<T>(
   continueOnError: boolean,
   logErrors: boolean,
 ): void {
-  // Use for-i loop for regular listeners
-  if (listeners) {
-    const len = listeners.length;
+  // Create copies of the listener arrays to iterate over
+  const listenersCopy = listeners ? Array.from(listeners) : [];
+  const onceListenersCopy = onceListeners ? Array.from(onceListeners) : [];
+
+  // Use for-i loop for regular listeners (iterate over copy)
+  if (listenersCopy.length > 0) {
+    const len = listenersCopy.length;
     for (let i = 0; i < len; i++) {
-      executeSyncHandler(listeners[i], args, continueOnError, logErrors);
+      executeSyncHandler(listenersCopy[i], args, continueOnError, logErrors);
     }
   }
 
-  // Use reverse for-i loop for once listeners to allow safe removal
-  if (onceListeners) {
-    for (let i = onceListeners.length - 1; i >= 0; i--) {
-      const listener = onceListeners[i];
+  // Use reverse for-i loop for once listeners (iterate over copy)
+  // Remove from the original array after execution
+  if (onceListenersCopy.length > 0) {
+    for (let i = onceListenersCopy.length - 1; i >= 0; i--) {
+      const listener = onceListenersCopy[i];
       executeSyncHandler(listener, args, continueOnError, logErrors);
-      onceListeners.splice(i, 1);
+      // Find and remove the listener from the original onceListeners array
+      if (onceListeners) {
+        const originalIndex = onceListeners.findIndex(l => l === listener);
+        if (originalIndex !== -1) {
+          onceListeners.splice(originalIndex, 1);
+        }
+      }
     }
   }
 }
