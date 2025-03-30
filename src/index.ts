@@ -20,7 +20,7 @@ export {
 } from './types';
 
 // Export functions
-export {mono} from './mono';
-export {monoAsync} from './monoAsync';
-export {monoRestrict} from './monoRestrict';
-export {monoRestrictAsync} from './monoRestrictAsync';
+export { mono } from './mono';
+export { monoAsync } from './monoAsync';
+export { monoRestrict } from './monoRestrict';
+export { monoRestrictAsync } from './monoRestrictAsync';

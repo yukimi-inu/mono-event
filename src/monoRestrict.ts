@@ -2,9 +2,9 @@
  * Restricted synchronous event implementation
  */
 
-import type {EmitterOptions} from './types';
-import type {MonoRestrictedEvent} from './types/sync';
-import {monoRestrictEmitProto, monoRestrictEventProto} from './utils';
+import type { EmitterOptions } from './types';
+import type { MonoRestrictedEvent } from './types/sync';
+import { monoRestrictEmitProto, monoRestrictEventProto } from './utils';
 
 /**
  * Creates a new restricted synchronous event with separated emission control
@@ -14,19 +14,19 @@ export function monoRestrict<T>(options: EmitterOptions = {}): {
   emit: (args: T) => void;
 } {
   // Set options with defaults
-  const {continueOnError = false, logErrors = false} = options;
+  const { continueOnError = false, logErrors = false } = options;
 
   // Create event instance with shared methods
   const eventInstance = Object.create(monoRestrictEventProto);
 
-  // Add instance-specific properties
-  eventInstance.listeners = [];
-  eventInstance.onceListeners = [];
+  // Add instance-specific properties (listeners are lazily initialized)
+  eventInstance.listeners = null;
+  eventInstance.onceListeners = null;
 
   // Create emit instance with shared methods
   const emitInstance = Object.create(monoRestrictEmitProto);
 
-  // Add instance-specific properties
+  // Add instance-specific properties to emitInstance
   emitInstance.event = eventInstance;
   emitInstance.continueOnError = continueOnError;
   emitInstance.logErrors = logErrors;

@@ -1,6 +1,6 @@
-import type {Caller, EventOptions, GenericFunction} from './types';
-import type {AsyncEventHandler} from './types/async';
-import type {EventHandler} from './types/sync';
+import type { Caller, EventOptions, GenericFunction } from './types';
+import type { AsyncEventHandler } from './types/async';
+import type { EventHandler } from './types/sync';
 
 /**
  * A compact structure that stores listener information
@@ -11,11 +11,18 @@ export interface CompactListener<H extends GenericFunction> {
 }
 
 /**
- * Base event context that holds arrays of listeners
+ * Base event context that holds arrays of listeners (lazily initialized)
  */
 export interface BaseEventContext<H extends GenericFunction> {
-  listeners: Array<CompactListener<H>>;
-  onceListeners: Array<CompactListener<H>>;
+  listeners: CompactListener<H>[] | null; // Lazily initialized array
+  onceListeners: CompactListener<H>[] | null; // Lazily initialized array
+
+  // Methods defined in baseEventMethods
+  add: (...args: unknown[]) => () => void;
+
+  remove(...args: unknown[]): boolean;
+
+  removeAll(): void;
 }
 
 /**
@@ -34,7 +41,6 @@ export interface AsyncEventContext<T = unknown> extends BaseEventContext<AsyncEv
   continueOnError: boolean;
   logErrors: boolean;
 
-  // Private emission methods
   _emitParallel(args: T): Promise<void>;
 
   _emitSequential(args: T): Promise<void>;
@@ -44,7 +50,6 @@ export interface AsyncEventContext<T = unknown> extends BaseEventContext<AsyncEv
  * Context for restricted synchronous event emitters
  */
 export interface RestrictedSyncEmitContext<T = unknown> {
-  // Reference to the base event context
   event: BaseEventContext<EventHandler<T>>;
   continueOnError: boolean;
   logErrors: boolean;
@@ -54,13 +59,11 @@ export interface RestrictedSyncEmitContext<T = unknown> {
  * Context for restricted asynchronous event emitters
  */
 export interface RestrictedAsyncEmitContext<T = unknown> {
-  // Reference to the base event context
   event: BaseEventContext<AsyncEventHandler<T>>;
   parallel: boolean;
   continueOnError: boolean;
   logErrors: boolean;
 
-  // Private emission methods
   _emitParallel(args: T): Promise<void>;
 
   _emitSequential(args: T): Promise<void>;
@@ -74,26 +77,10 @@ export function parseAddArgs<H extends GenericFunction>(
   args: unknown[],
 ): { handler: H; caller: Caller | null; options: EventOptions } {
   const isFunc = typeof args[0] === 'function';
-
   return {
     handler: isFunc ? (args[0] as H) : (args[1] as H),
     caller: isFunc ? null : (args[0] as Caller),
     options: ((isFunc ? args[1] : args[2]) as EventOptions) || {},
-  };
-}
-
-/**
- * Creates an unsubscribe function that removes the specified listener.
- */
-export function createUnsubscribe<H extends GenericFunction>(
-  listeners: Array<CompactListener<H>>,
-  listener: CompactListener<H>,
-): () => void {
-  return function unsubscribe() {
-    const index = listeners.indexOf(listener);
-    if (index !== -1) {
-      listeners.splice(index, 1);
-    }
   };
 }
 
@@ -110,25 +97,6 @@ export function parseRemoveArgs<H extends GenericFunction>(args: unknown[]): { h
 }
 
 /**
- * Finds and removes a specific listener from the array.
- * Returns true if removed, otherwise false.
- */
-export function findAndRemove<H extends GenericFunction>(
-  listeners: Array<CompactListener<H>>,
-  handler: H,
-  caller: Caller | null,
-): boolean {
-  for (let i = 0; i < listeners.length; i++) {
-    const l = listeners[i];
-    if (l.c === caller && l.h === handler) {
-      listeners.splice(i, 1);
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Executes a synchronous handler with error handling.
  */
 export function executeSyncHandler<T>(
@@ -138,7 +106,6 @@ export function executeSyncHandler<T>(
   logErrors: boolean,
 ): void {
   if (!listener) return;
-
   try {
     if (listener.c) {
       listener.h.call(listener.c, args);
@@ -146,12 +113,8 @@ export function executeSyncHandler<T>(
       listener.h(args);
     }
   } catch (error) {
-    if (logErrors) {
-      console.error('Error in event handler:', error);
-    }
-    if (!continueOnError) {
-      throw error;
-    }
+    if (logErrors) console.error('Error in event handler:', error);
+    if (!continueOnError) throw error;
   }
 }
 
@@ -165,7 +128,6 @@ export async function executeAsyncHandler<T>(
   logErrors: boolean,
 ): Promise<void> {
   if (!listener) return;
-
   try {
     if (listener.c) {
       await listener.h.call(listener.c, args);
@@ -173,50 +135,39 @@ export async function executeAsyncHandler<T>(
       await listener.h(args);
     }
   } catch (error) {
-    if (logErrors) {
-      console.error('Error in async event handler:', error);
-    }
-    if (!continueOnError) {
-      throw error;
-    }
+    if (logErrors) console.error('Error in async event handler:', error);
+    if (!continueOnError) throw error;
   }
 }
 
-/* ------------------------------------------------------------------
-   Common helper function for synchronous emission
------------------------------------------------------------------- */
 function emitSyncHandlers<T>(
-  listeners: Array<CompactListener<EventHandler<T>>>,
-  onceListeners: Array<CompactListener<EventHandler<T>>>,
+  listeners: CompactListener<EventHandler<T>>[] | null,
+  onceListeners: CompactListener<EventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
 ): void {
-  // Handle regular (persistent) listeners
-  if (listeners.length > 0) {
-    const current = [...listeners]; // copy to avoid modification issues
-    for (const listener of current) {
-      executeSyncHandler(listener, args, continueOnError, logErrors);
+  // Use for-i loop for regular listeners
+  if (listeners) {
+    const len = listeners.length;
+    for (let i = 0; i < len; i++) {
+      executeSyncHandler(listeners[i], args, continueOnError, logErrors);
     }
   }
 
-  // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0; // Clear onceListeners immediately
-    for (const listener of currentOnce) {
+  // Use reverse for-i loop for once listeners to allow safe removal
+  if (onceListeners) {
+    for (let i = onceListeners.length - 1; i >= 0; i--) {
+      const listener = onceListeners[i];
       executeSyncHandler(listener, args, continueOnError, logErrors);
+      onceListeners.splice(i, 1);
     }
   }
 }
 
-/* ------------------------------------------------------------------
-   Common helper function for async emission
-   (chooses between parallel or sequential execution)
------------------------------------------------------------------- */
 async function emitAsyncHandlers<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   parallel: boolean,
   continueOnError: boolean,
@@ -230,119 +181,163 @@ async function emitAsyncHandlers<T>(
 }
 
 /**
- * Handles async emission in parallel.
+ * Handles async emission in parallel using Arrays (handles null).
  */
 async function emitAsyncParallel<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
 ): Promise<void> {
   const promises: Promise<void>[] = [];
+  // Copy onceListeners before clearing, as they run in parallel
+  const currentOnce = onceListeners ? Array.from(onceListeners) : [];
+  if (onceListeners) onceListeners.length = 0; // Clear original array
 
-  // Handle regular listeners
-  if (listeners.length > 0) {
-    const current = [...listeners];
-    for (const listener of current) {
-      promises.push(executeAsyncHandler(listener, args, continueOnError, logErrors));
+  // Use for-i loop for regular listeners
+  if (listeners) {
+    const len = listeners.length;
+    for (let i = 0; i < len; i++) {
+      promises.push(executeAsyncHandler(listeners[i], args, continueOnError, logErrors));
     }
   }
-
-  // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0;
-    for (const listener of currentOnce) {
-      promises.push(executeAsyncHandler(listener, args, continueOnError, logErrors));
+  // Use for-i loop for the copied once listeners
+  const onceLen = currentOnce.length;
+  if (onceLen > 0) {
+    for (let i = 0; i < onceLen; i++) {
+      promises.push(executeAsyncHandler(currentOnce[i], args, continueOnError, logErrors));
     }
   }
-
-  // Wait until all promises have settled
-  await Promise.all(promises);
+  if (promises.length > 0) {
+    await Promise.all(promises);
+  }
 }
 
 /**
- * Handles async emission sequentially.
+ * Handles async emission sequentially using Arrays (handles null).
  */
 async function emitAsyncSequential<T>(
-  listeners: Array<CompactListener<AsyncEventHandler<T>>>,
-  onceListeners: Array<CompactListener<AsyncEventHandler<T>>>,
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
 ): Promise<void> {
-  // Handle regular listeners
-  if (listeners.length > 0) {
-    const current = [...listeners];
-    for (const listener of current) {
-      await executeAsyncHandler(listener, args, continueOnError, logErrors);
+  // Use for-i loop for regular listeners
+  if (listeners) {
+    const len = listeners.length;
+    for (let i = 0; i < len; i++) {
+      await executeAsyncHandler(listeners[i], args, continueOnError, logErrors);
     }
   }
 
-  // Handle "once" listeners
-  if (onceListeners.length > 0) {
-    const currentOnce = [...onceListeners];
-    onceListeners.length = 0;
-    for (const listener of currentOnce) {
+  // Use reverse for-i loop for once listeners to allow safe removal
+  if (onceListeners) {
+    for (let i = onceListeners.length - 1; i >= 0; i--) {
+      const listener = onceListeners[i];
       await executeAsyncHandler(listener, args, continueOnError, logErrors);
+      // Remove the executed once listener
+      onceListeners.splice(i, 1);
     }
   }
 }
 
-/* ------------------------------------------------------------------
-   Base methods (add, remove, removeAll) shared by all event contexts
------------------------------------------------------------------- */
+// --- Base Event Methods ---
 const baseEventMethods = {
   add<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): () => void {
-    const {handler, caller, options} = parseAddArgs<H>(args);
+    const { handler, caller, options } = parseAddArgs<H>(args);
+    const listener: CompactListener<H> = { h: handler, c: caller };
 
-    const listener: CompactListener<H> = {h: handler, c: caller};
-    const targetArray = options.once ? this.onceListeners : this.listeners;
+    let targetArray: CompactListener<H>[];
+
+    if (options.once) {
+      if (!this.onceListeners) {
+        this.onceListeners = [];
+      }
+      targetArray = this.onceListeners;
+    } else {
+      if (!this.listeners) {
+        this.listeners = [];
+      }
+      targetArray = this.listeners;
+    }
+
     targetArray.push(listener);
 
-    // Return unsubscribe function
-    return createUnsubscribe(targetArray, listener);
+    const self = this;
+    return function unsubscribe() {
+      if (caller !== null) {
+        self.remove(caller, handler);
+      } else {
+        self.remove(handler);
+      }
+    };
   },
 
   remove<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): boolean {
-    const {handler, caller} = parseRemoveArgs<H>(args);
-    return findAndRemove(this.listeners, handler, caller) || findAndRemove(this.onceListeners, handler, caller);
+    const { handler, caller } = parseRemoveArgs<H>(args);
+    let removed = false;
+
+    // Search listeners array backwards using a for loop
+    if (this.listeners) {
+      for (let i = this.listeners.length - 1; i >= 0; i--) {
+        const listener = this.listeners[i];
+        if (listener.h === handler && listener.c === caller) {
+          this.listeners.splice(i, 1);
+          removed = true;
+          break; // Exit loop once found and removed
+        }
+      }
+    }
+
+    // Search onceListeners array backwards using a for loop if not removed from listeners
+    if (!removed && this.onceListeners) {
+      for (let i = this.onceListeners.length - 1; i >= 0; i--) {
+        const listener = this.onceListeners[i];
+        if (listener.h === handler && listener.c === caller) {
+          this.onceListeners.splice(i, 1);
+          removed = true;
+          break; // Exit loop once found and removed
+        }
+      }
+    }
+    return removed;
   },
 
   removeAll<H extends GenericFunction>(this: BaseEventContext<H>): void {
-    this.listeners.length = 0;
-    this.onceListeners.length = 0;
+    if (this.listeners) this.listeners.length = 0;
+    if (this.onceListeners) this.onceListeners.length = 0;
   },
 };
 
-/* ------------------------------------------------------------------
-   Sync event emission methods
------------------------------------------------------------------- */
+// --- Sync Emit Methods ---
 const syncEmitMethods = {
   emit<T>(this: SyncEventContext<T>, args: T): void {
-    if (!this.listeners.length && !this.onceListeners.length) return;
+    if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
+      return;
+    }
     emitSyncHandlers(this.listeners, this.onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
-/* ------------------------------------------------------------------
-   Restricted sync event emission methods
------------------------------------------------------------------- */
+// --- Restricted Sync Emit Methods ---
 const restrictedSyncEmitMethods = {
   emit<T>(this: RestrictedSyncEmitContext<T>, args: T): void {
-    const {listeners, onceListeners} = this.event;
-    if (!listeners.length && !onceListeners.length) return;
+    const { listeners, onceListeners } = this.event;
+    if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
+      return;
+    }
     emitSyncHandlers(listeners, onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
-/* ------------------------------------------------------------------
-   Async event emission methods
------------------------------------------------------------------- */
+// --- Async Emit Methods ---
 const asyncEmitMethods = {
   async emit<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
-    if (!this.listeners.length && !this.onceListeners.length) return;
+    if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncHandlers(
       this.listeners,
       this.onceListeners,
@@ -354,38 +349,48 @@ const asyncEmitMethods = {
   },
 
   async _emitParallel<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
+    if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncParallel(this.listeners, this.onceListeners, args, this.continueOnError, this.logErrors);
   },
 
   async _emitSequential<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
+    if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncSequential(this.listeners, this.onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
-/* ------------------------------------------------------------------
-   Restricted async event emission methods
------------------------------------------------------------------- */
+// --- Restricted Async Emit Methods ---
 const restrictedAsyncEmitMethods = {
   async emit<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
-    if (!listeners.length && !onceListeners.length) return;
+    const { listeners, onceListeners } = this.event;
+    if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncHandlers(listeners, onceListeners, args, this.parallel, this.continueOnError, this.logErrors);
   },
 
   async _emitParallel<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
+    const { listeners, onceListeners } = this.event;
+    if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncParallel(listeners, onceListeners, args, this.continueOnError, this.logErrors);
   },
 
   async _emitSequential<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
+    const { listeners, onceListeners } = this.event;
+    if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
+      return;
+    }
     await emitAsyncSequential(listeners, onceListeners, args, this.continueOnError, this.logErrors);
   },
 };
 
-/* ------------------------------------------------------------------
-   Prototype objects with assigned methods
------------------------------------------------------------------- */
+// --- Prototypes ---
 export const monoProto = Object.create(null);
 Object.assign(monoProto, baseEventMethods, syncEmitMethods);
 

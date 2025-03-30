@@ -1,6 +1,9 @@
 {
   "imports": {
-    "mono-event": "./dist/index.min.js",
-    "mono-event/": "./dist/"
+    "eventemitter3": "npm:eventemitter3",
+    "mitt": "npm:mitt",
+    "nanoevents": "npm:nanoevents",
+    "rxjs": "npm:rxjs",
+    "mono-event": "./dist/index.min.js"
   }
 }

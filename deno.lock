@@ -1,5 +1,42 @@
 {
   "version": "3",
+  "packages": {
+    "specifiers": {
+      "npm:eventemitter3": "npm:eventemitter3@5.0.1",
+      "npm:mitt": "npm:mitt@3.0.1",
+      "npm:mono-event": "npm:mono-event@0.1.2",
+      "npm:nanoevents": "npm:nanoevents@9.1.0",
+      "npm:rxjs": "npm:rxjs@7.8.2"
+    },
+    "npm": {
+      "eventemitter3@5.0.1": {
+        "integrity": "sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==",
+        "dependencies": {}
+      },
+      "mitt@3.0.1": {
+        "integrity": "sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==",
+        "dependencies": {}
+      },
+      "mono-event@0.1.2": {
+        "integrity": "sha512-WtJh5uRuGq/1uTWAgwS9x7kq37T41Y+AxAnZeWwvPkACf47knYXgwpO5d5Xv1OdWjuKWGtdovdBhLCHoa9Yi9Q==",
+        "dependencies": {}
+      },
+      "nanoevents@9.1.0": {
+        "integrity": "sha512-Jd0fILWG44a9luj8v5kED4WI+zfkkgwKyRQKItTtlPfEsh7Lznfi1kr8/iZ+XAIss4Qq5GqRB0qtWbaz9ceO/A==",
+        "dependencies": {}
+      },
+      "rxjs@7.8.2": {
+        "integrity": "sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==",
+        "dependencies": {
+          "tslib": "tslib@2.8.1"
+        }
+      },
+      "tslib@2.8.1": {
+        "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+        "dependencies": {}
+      }
+    }
+  },
   "redirects": {
     "https://deno.land/std/assert/mod.ts": "https://deno.land/std@0.224.0/assert/mod.ts"
   },

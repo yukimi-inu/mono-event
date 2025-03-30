@@ -14,11 +14,11 @@ function formatSize(bytes) {
   if (bytes < 1024) {
     return `${bytes} B`;
   }
-  
+
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(2)} KB`;
   }
-  
+
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
@@ -50,7 +50,7 @@ function getPackageSize(packageName) {
   try {
     const packageJsonPath = path.join(rootDir, 'node_modules', packageName, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    
+
     // Try to find the main minified file
     let mainFile;
     if (packageJson.unpkg) {
@@ -64,34 +64,34 @@ function getPackageSize(packageName) {
     } else {
       mainFile = path.join(rootDir, 'node_modules', packageName, 'index.js');
     }
-    
+
     if (fs.existsSync(mainFile)) {
       return {
         path: mainFile,
         size: getBundleSize(mainFile),
-        gzippedSize: getGzippedSize(mainFile)
+        gzippedSize: getGzippedSize(mainFile),
       };
     }
-    
+
     // If main file not found, try common patterns
     const possiblePaths = [
       path.join(rootDir, 'node_modules', packageName, 'dist', `${packageName}.min.js`),
       path.join(rootDir, 'node_modules', packageName, 'dist', 'index.min.js'),
       path.join(rootDir, 'node_modules', packageName, 'umd', `${packageName}.min.js`),
       path.join(rootDir, 'node_modules', packageName, 'lib', 'index.js'),
-      path.join(rootDir, 'node_modules', packageName, 'index.js')
+      path.join(rootDir, 'node_modules', packageName, 'index.js'),
     ];
-    
+
     for (const possiblePath of possiblePaths) {
       if (fs.existsSync(possiblePath)) {
         return {
           path: possiblePath,
           size: getBundleSize(possiblePath),
-          gzippedSize: getGzippedSize(possiblePath)
+          gzippedSize: getGzippedSize(possiblePath),
         };
       }
     }
-    
+
     return { path: null, size: 0, gzippedSize: 0 };
   } catch (error) {
     console.error(`Error getting package size for ${packageName}:`, error.message);
@@ -104,10 +104,10 @@ console.log('\n===== Bundle Size Comparison =====\n');
 // Define libraries to measure
 const libraries = {
   'mono-event': { path: path.join(rootDir, 'dist', 'index.min.js') },
-  'eventemitter3': { package: 'eventemitter3' },
-  'mitt': { package: 'mitt' },
-  'nanoevents': { package: 'nanoevents' },
-  'rxjs': { package: 'rxjs' }
+  eventemitter3: { package: 'eventemitter3' },
+  mitt: { package: 'mitt' },
+  nanoevents: { package: 'nanoevents' },
+  rxjs: { package: 'rxjs' },
 };
 
 // Measure and display bundle sizes
@@ -118,7 +118,7 @@ for (const [library, info] of Object.entries(libraries)) {
   let size = 0;
   let gzippedSize = 0;
   let filePath = '';
-  
+
   if (info.path) {
     // Direct path provided
     filePath = info.path;
@@ -131,9 +131,11 @@ for (const [library, info] of Object.entries(libraries)) {
     gzippedSize = packageInfo.gzippedSize;
     filePath = packageInfo.path || 'Not found';
   }
-  
+
   const shortPath = filePath.replace(rootDir, '...');
-  console.log(`| ${library.padEnd(12)} | ${formatSize(size).padEnd(13)} | ${formatSize(gzippedSize).padEnd(12)} | ${shortPath} |`);
+  console.log(
+    `| ${library.padEnd(12)} | ${formatSize(size).padEnd(13)} | ${formatSize(gzippedSize).padEnd(12)} | ${shortPath} |`,
+  );
 }
 
 console.log('\nNote: Smaller bundle size means less JavaScript to download, parse, and execute in the browser.');

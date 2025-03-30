@@ -2,7 +2,7 @@
  * Asynchronous event type definitions
  */
 
-import type {EventOptions} from './common';
+import type { EventOptions } from './common';
 
 /**
  * Type definition for an asynchronous event handler
