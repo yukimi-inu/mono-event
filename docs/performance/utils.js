@@ -93,7 +93,6 @@ export function formatMemory(memResult, pad = 0) {
   return '-'.padStart(pad);
 }
 
-
 /**
  * Forces garbage collection if available in the environment (Node or Bun).
  */
@@ -222,20 +221,25 @@ export function generateTable(options) {
  * @returns {number | null} The best numeric value found, or null if none found.
  */
 export function findBestValue(rows, colIndex, lowerIsBetter = true, valueAccessor = (cell) => cell) {
-    let bestVal = null;
-    for (const row of rows) {
-        if (row && row.length > colIndex) { // Check if row and cell exist
-            const cell = row[colIndex];
-            const numericValue = valueAccessor(cell); // Use accessor
+  let bestVal = null;
+  for (const row of rows) {
+    if (row && row.length > colIndex) {
+      // Check if row and cell exist
+      const cell = row[colIndex];
+      const numericValue = valueAccessor(cell); // Use accessor
 
-            if (typeof numericValue === 'number' && !Number.isNaN(numericValue)) {
-                if (bestVal === null || (lowerIsBetter && numericValue < bestVal) || (!lowerIsBetter && numericValue > bestVal)) {
-                    bestVal = numericValue;
-                }
-            }
+      if (typeof numericValue === 'number' && !Number.isNaN(numericValue)) {
+        if (
+          bestVal === null ||
+          (lowerIsBetter && numericValue < bestVal) ||
+          (!lowerIsBetter && numericValue > bestVal)
+        ) {
+          bestVal = numericValue;
         }
+      }
     }
-    return bestVal;
+  }
+  return bestVal;
 }
 
 /**
@@ -246,17 +250,17 @@ export function findBestValue(rows, colIndex, lowerIsBetter = true, valueAccesso
  * @returns {function} A new formatter function.
  */
 export function createBestValueFormatter(baseFormatter, bestValue, valueAccessor = (cell) => cell) {
-    return (cell) => {
-        const formatted = baseFormatter(cell); // Apply base formatting first
-        // If bestValue is null or formatted is '-', no highlighting needed
-        if (bestValue === null || formatted === '-') return formatted;
+  return (cell) => {
+    const formatted = baseFormatter(cell); // Apply base formatting first
+    // If bestValue is null or formatted is '-', no highlighting needed
+    if (bestValue === null || formatted === '-') return formatted;
 
-        const originalValue = valueAccessor(cell); // Get the comparable value
+    const originalValue = valueAccessor(cell); // Get the comparable value
 
-        // Check if the original value matches the best value
-        if (typeof originalValue === 'number' && !Number.isNaN(originalValue) && originalValue === bestValue) {
-            return `**${formatted}**`; // Add Markdown bold syntax
-        }
-        return formatted; // Return the base formatted value if not the best
-    };
+    // Check if the original value matches the best value
+    if (typeof originalValue === 'number' && !Number.isNaN(originalValue) && originalValue === bestValue) {
+      return `**${formatted}**`; // Add Markdown bold syntax
+    }
+    return formatted; // Return the base formatted value if not the best
+  };
 }

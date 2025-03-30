@@ -4,7 +4,7 @@ import { assertEquals, assert } from 'https://deno.land/std/assert/mod.ts';
 import { mono, monoAsync, monoRestrict, monoRestrictAsync, monoDebounce, monoThrottle } from './dist/index.min.js';
 
 // Helper function for async delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Basic tests (existing)
 Deno.test('mono basic test', () => {
@@ -90,6 +90,21 @@ Deno.test('monoDebounce test', async () => {
   assertEquals(calls[1], 4);
 });
 
+Deno.test('monoDebounce test (wait=0)', () => {
+  const event = mono<string>();
+  const calls: string[] = [];
+  const debouncedHandler = monoDebounce((data: string) => {
+    calls.push(data);
+  }, 0);
+  event.add(debouncedHandler);
+
+  event.emit('test');
+  // Should execute immediately
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0], 'test');
+});
+
+
 Deno.test('monoThrottle test (leading + trailing)', async () => {
   const event = mono<number>();
   const calls: number[] = [];
@@ -117,14 +132,29 @@ Deno.test('monoThrottle test (leading + trailing)', async () => {
   assertEquals(calls.length, 2);
   assertEquals(calls[1], 3); // Called with last arg (3)
 
-  // 4. Immediate call after wait
+  // 4. Immediate call after wait (should NOT execute immediately after trailing)
   event.emit(4);
-  assertEquals(calls.length, 3);
-  assertEquals(calls[2], 4);
+  assertEquals(calls.length, 2); // Should still be 2
 
   // 5. Trailing call after another wait
   event.emit(5);
   await delay(waitMs + 10);
-  assertEquals(calls.length, 4);
-  assertEquals(calls[3], 5);
+  assertEquals(calls.length, 3); // Trailing call for 5 executes
+  assertEquals(calls[2], 5);
+});
+
+Deno.test('monoThrottle test (wait=0)', () => {
+  const event = mono<string>();
+  const calls: string[] = [];
+  const throttledHandler = monoThrottle((data: string) => {
+    calls.push(data);
+  }, 0);
+  event.add(throttledHandler);
+
+  event.emit('test1');
+  event.emit('test2');
+  // Should execute immediately each time
+  assertEquals(calls.length, 2);
+  assertEquals(calls[0], 'test1');
+  assertEquals(calls[1], 'test2');
 });

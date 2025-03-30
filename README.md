@@ -197,6 +197,36 @@ event.add(receiver, receiver.process, {once: true});
 await emit(123);
 ```
 
+### 5. Using Decorators (monoDebounce, monoThrottle)
+
+Utility functions are provided to easily apply common patterns like debouncing and throttling to your event handlers.
+
+```ts
+import { mono, monoDebounce, monoThrottle } from 'mono-event';
+
+const event = mono<string>();
+const waitMs = 500;
+
+// Debounced handler: Executes only after 500ms of inactivity
+const debouncedHandler = monoDebounce((data) => {
+  console.log(`Debounced: ${data}`);
+}, waitMs);
+
+// Throttled handler: Executes at most once every 500ms (leading + trailing edge)
+const throttledHandler = monoThrottle((data) => {
+  console.log(`Throttled: ${data}`);
+}, waitMs);
+
+event.add(debouncedHandler);
+event.add(throttledHandler);
+
+// Example emissions
+event.emit('A'); // Throttle executes immediately
+event.emit('B');
+setTimeout(() => event.emit('C'), 100);
+// ... (Debounce executes after 500ms pause, Throttle executes trailing calls)
+```
+
 ## API Overview
 
 ### `mono<T>()`
@@ -243,6 +273,13 @@ await emit(123);
         - `event`: An object with the same methods as in `monoRestrict`, but supporting async handlers
         - `emit(args: T): Promise<void>`: A function dedicated to emitting events, returning a Promise that resolves
           when all handlers have completed.
+
+### Decorators
+
+- **`monoDebounce<F extends Function>(func: F, wait: number): F`**
+    - Creates a debounced function that delays invoking `func` until after `wait` milliseconds have elapsed since the last time the debounced function was invoked.
+- **`monoThrottle<F extends Function>(func: F, wait: number): F`**
+    - Creates a throttled function that only invokes `func` at most once per every `wait` milliseconds (leading + trailing edge behavior).
 
 ## Contributing
 

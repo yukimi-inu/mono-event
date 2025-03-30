@@ -167,7 +167,7 @@ function emitSyncHandlers<T>(
       executeSyncHandler(listener, args, continueOnError, logErrors);
       // Find and remove the listener from the original onceListeners array
       if (onceListeners) {
-        const originalIndex = onceListeners.findIndex(l => l === listener);
+        const originalIndex = onceListeners.findIndex((l) => l === listener);
         if (originalIndex !== -1) {
           onceListeners.splice(originalIndex, 1);
         }

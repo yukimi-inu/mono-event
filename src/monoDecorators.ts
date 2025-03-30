@@ -37,9 +37,9 @@ export function monoDebounce<T extends (...args: any[]) => any>(func: T, wait: n
  */
 export function monoThrottle<T extends (...args: any[]) => any>(func: T, wait: number): T {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let lastArgs: Parameters<T> | null = null; // Store args for the trailing call
-  let trailingCallScheduled = false; // Flag for pending trailing call
-  let lastCallTime = 0; // Timestamp of the last execution
+  let lastArgs: Parameters<T> | null = null;
+  let trailingCallScheduled = false;
+  let lastCallTime = 0;
 
   function throttled(...args: Parameters<T>): void {
     const now = Date.now();
@@ -53,33 +53,34 @@ export function monoThrottle<T extends (...args: any[]) => any>(func: T, wait: n
     const remaining = wait - (now - lastCallTime);
 
     if (remaining <= 0 || remaining > wait) {
-      // --- Execute immediately (leading edge or after wait) ---
+      // Execute immediately if enough time has passed or it's the first call
       if (timeoutId) {
+        // Clear any pending trailing call
         clearTimeout(timeoutId);
         timeoutId = null;
       }
       lastCallTime = now;
       func(...args);
-      trailingCallScheduled = false; // Reset trailing flag on immediate execution
-      lastArgs = null; // Clear args after execution
+      trailingCallScheduled = false;
+      lastArgs = null;
     } else if (!timeoutId && !trailingCallScheduled) {
-      // --- Schedule trailing call ---
-      lastArgs = args; // Store latest args for trailing call
+      // Schedule a trailing call if not already waiting for one
+      lastArgs = args;
       trailingCallScheduled = true;
       timeoutId = setTimeout(() => {
-        lastCallTime = Date.now(); // Update last call time for the trailing execution
+        lastCallTime = Date.now(); // Record execution time of the trailing call
         timeoutId = null;
         trailingCallScheduled = false;
         if (lastArgs) {
           func(...lastArgs);
-          lastArgs = null; // Clear args after trailing execution
+          lastArgs = null;
         }
       }, remaining);
     } else {
-        // --- Update args for pending trailing call ---
-        lastArgs = args; // Update with the latest arguments
+      // Update arguments for the already scheduled trailing call
+      lastArgs = args;
     }
   }
-  
+
   return throttled as T;
 }
