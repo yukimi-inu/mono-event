@@ -71,16 +71,28 @@ export function formatResult(value, pad = 0, precision = 2) {
 /**
  * Formats a memory benchmark result (per instance) for display.
  * Converts bytes to KB and formats the number. Returns '-' if invalid.
- * @param {object | null} memResult Memory result object containing perInstance property in bytes.
+ * Expects an object with a `perInstance` property in bytes, or a direct number in bytes.
+ * @param {object | number | null} memResult Memory result object or direct byte value.
  * @param {number} [pad=0] Minimum width for padding.
  * @returns {string} Formatted memory string in KB or '-'.
  */
 export function formatMemory(memResult, pad = 0) {
-  if (memResult && typeof memResult.perInstance === 'number' && !Number.isNaN(memResult.perInstance)) {
-    return (memResult.perInstance / 1024).toFixed(2).padStart(pad);
+  let bytes = null;
+  if (typeof memResult === 'number' && !Number.isNaN(memResult)) {
+    bytes = memResult;
+  } else if (memResult && typeof memResult.perInstance === 'number' && !Number.isNaN(memResult.perInstance)) {
+    bytes = memResult.perInstance;
+  }
+
+  if (bytes !== null) {
+    // Convert toFixed result back to number before passing to formatNumber
+    // Use Number.parseFloat instead of global parseFloat
+    const kbValue = Number.parseFloat((bytes / 1024).toFixed(2));
+    return formatNumber(kbValue).padStart(pad);
   }
   return '-'.padStart(pad);
 }
+
 
 /**
  * Forces garbage collection if available in the environment (Node or Bun).
@@ -198,4 +210,53 @@ export function generateTable(options) {
   });
 
   return [headerRow, separator, ...dataRows].join('\n');
+}
+
+/**
+ * Finds the best value in a specific column of a 2D array (rows).
+ * Handles potential nested objects for memory results.
+ * @param {Array<Array<any>>} rows The data rows.
+ * @param {number} colIndex The index of the column to check.
+ * @param {boolean} [lowerIsBetter=true] Whether a lower value is considered better.
+ * @param {function} [valueAccessor=(cell) => cell] Function to extract the numeric value from a cell.
+ * @returns {number | null} The best numeric value found, or null if none found.
+ */
+export function findBestValue(rows, colIndex, lowerIsBetter = true, valueAccessor = (cell) => cell) {
+    let bestVal = null;
+    for (const row of rows) {
+        if (row && row.length > colIndex) { // Check if row and cell exist
+            const cell = row[colIndex];
+            const numericValue = valueAccessor(cell); // Use accessor
+
+            if (typeof numericValue === 'number' && !Number.isNaN(numericValue)) {
+                if (bestVal === null || (lowerIsBetter && numericValue < bestVal) || (!lowerIsBetter && numericValue > bestVal)) {
+                    bestVal = numericValue;
+                }
+            }
+        }
+    }
+    return bestVal;
+}
+
+/**
+ * Creates a formatter function that highlights the best value in a column.
+ * @param {function} baseFormatter The base formatting function (e.g., formatResult, formatMemory).
+ * @param {number | null} bestValue The best value determined for the column.
+ * @param {function} [valueAccessor=(cell) => cell] Function to extract the numeric value from a cell for comparison.
+ * @returns {function} A new formatter function.
+ */
+export function createBestValueFormatter(baseFormatter, bestValue, valueAccessor = (cell) => cell) {
+    return (cell) => {
+        const formatted = baseFormatter(cell); // Apply base formatting first
+        // If bestValue is null or formatted is '-', no highlighting needed
+        if (bestValue === null || formatted === '-') return formatted;
+
+        const originalValue = valueAccessor(cell); // Get the comparable value
+
+        // Check if the original value matches the best value
+        if (typeof originalValue === 'number' && !Number.isNaN(originalValue) && originalValue === bestValue) {
+            return `**${formatted}**`; // Add Markdown bold syntax
+        }
+        return formatted; // Return the base formatted value if not the best
+    };
 }

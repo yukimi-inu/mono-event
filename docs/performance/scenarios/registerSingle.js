@@ -2,8 +2,8 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono } from '../../../dist/index.min.js';
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
 import { measureTimeAverage } from '../utils.js';
 
 /**
@@ -12,12 +12,12 @@ import { measureTimeAverage } from '../utils.js';
  * @returns {object} Results object { mono, ee3, mitt, nano, rxjs, nodeEvents, eventTarget }.
  */
 export function runRegisterSingleBenchmark(config) {
-  const { REGISTER_ITERATIONS } = config; // Use specific iteration count
+  const { REGISTER_ITERATIONS } = config;
   const results = {};
-  const handlers = []; // Store handlers for removal
+  const handlers = [];
   for (let i = 0; i < REGISTER_ITERATIONS; i++) {
     handlers.push(() => {
-      i;
+      i; // Simple operation inside handler
     });
   }
 
@@ -53,14 +53,12 @@ export function runRegisterSingleBenchmark(config) {
 
   // node:events
   const nodeEmitterSingle = new EventEmitter();
-  nodeEmitterSingle.setMaxListeners(0); // Suppress warning
   results.nodeEvents = measureTimeAverage(() => {
     for (let i = 0; i < REGISTER_ITERATIONS; i++) nodeEmitterSingle.on('event', handlers[i]);
   });
 
   // EventTarget
   const eventTargetSingle = new EventTarget();
-  setMaxListeners(0, eventTargetSingle); // Suppress warning
   results.eventTarget = measureTimeAverage(() => {
     for (let i = 0; i < REGISTER_ITERATIONS; i++) eventTargetSingle.addEventListener('event', handlers[i]);
   });

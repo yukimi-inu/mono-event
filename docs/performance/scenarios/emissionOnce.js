@@ -2,9 +2,9 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono } from '../../../dist/index.min.js';
-import { measureTimeAverage } from '../utils.js'; // Use measureTimeAverage
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
+import { measureTimeAverage } from '../utils.js';
 
 /**
  * Runs the event emission benchmark for 'once' listeners.
@@ -85,7 +85,7 @@ export function runEmissionOnceBenchmark(config) {
   results.nodeEvents = measureTimeAverage(() => {
     onceCounter = 0;
     const nodeEmitterOnce = new EventEmitter();
-    nodeEmitterOnce.setMaxListeners(0);
+    // nodeEmitterOnce.setMaxListeners(0); // Removed setMaxListeners
     for (let i = 0; i < ONCE_LISTENER_COUNT; i++) nodeEmitterOnce.once('event', handlers[i]);
     nodeEmitterOnce.emit('event');
   }, runs);
@@ -94,7 +94,7 @@ export function runEmissionOnceBenchmark(config) {
   results.eventTarget = measureTimeAverage(() => {
     onceCounter = 0;
     const eventTargetOnce = new EventTarget();
-    setMaxListeners(0, eventTargetOnce);
+    // setMaxListeners(0, eventTargetOnce); // Removed setMaxListeners
     for (let i = 0; i < ONCE_LISTENER_COUNT; i++)
       eventTargetOnce.addEventListener('event', handlers[i], { once: true });
     eventTargetOnce.dispatchEvent(eventObj);

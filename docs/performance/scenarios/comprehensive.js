@@ -2,9 +2,9 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono } from '../../../dist/index.min.js';
-import { measureTimeAverage, formatResult } from '../utils.js'; // Removed unused imports
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
+import { measureTimeAverage, formatResult } from '../utils.js';
 
 /**
  * Converts a library display name to its internal key used in results objects.
@@ -16,7 +16,7 @@ function getLibKey(libName) {
     case 'mono-event':
       return 'mono';
     case 'Restrict':
-      return 'restrict'; // Although not used here, keep for consistency
+      return 'restrict';
     case 'EventEmitter3':
       return 'ee3';
     case 'nanoevents':
@@ -62,11 +62,7 @@ export function runComprehensiveBenchmark(config) {
       start = performance.now();
       for (let i = 0; i < COMP_INSTANCE_COUNT; i++) {
         const instance = createFn();
-        // Adjust max listeners for Node Events and EventTarget if necessary
-        if (instance instanceof EventEmitter) instance.setMaxListeners(0);
-        // Note: Standard EventTarget doesn't have setMaxListeners, but Node's implementation might.
-        // If using Node's EventTarget specifically, you might need:
-        // if (typeof setMaxListeners === 'function' && instance instanceof EventTarget) setMaxListeners(0, instance);
+        // Removed setMaxListeners calls
         const handlers = []; // Store handlers/unbinds/subscriptions
         for (let j = 0; j < COMP_INITIAL_LISTENERS; j++) {
           const h = () => {

@@ -12,13 +12,14 @@ import { runMemoryListenersBenchmark } from './scenarios/memoryListeners.js';
 import { runComprehensiveBenchmark } from './scenarios/comprehensive.js';
 import { setMaxListeners } from 'node:events';
 
-// Disable max listeners warning for all instances
 setMaxListeners(0);
 
-const args = process.argv
-  .slice(2)
-  .map(Number)
-  .filter((n) => !Number.isNaN(n) && n > 0);
+// Runtime check
+const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
+
+// Argument Parsing (compatible with Node/Bun/Deno)
+const rawArgs = typeof Deno !== 'undefined' ? Deno.args : process.argv.slice(2);
+const args = rawArgs.map(Number).filter((n) => !Number.isNaN(n) && n > 0);
 const runOnly = new Set(args);
 const runAll = runOnly.size === 0;
 
@@ -54,14 +55,20 @@ const padMemListeners = 19;
 const padComp = 11;
 
 // Column Definitions
-const timeColumns = (key = 'result') => [{ header: 'Result (ms)', key, pad: padComp, formatFn: formatResult, align: 'right' }]; // Added align
+const timeColumns = (key = 'result') => [
+  { header: 'Result (ms)', key, pad: padComp, formatFn: formatResult, align: 'right' },
+]; // Added align
 const memoryColumns = (key = 'memory') => [
   { header: 'Memory (KB/inst)', key, pad: padMemEmpty, formatFn: formatMemory, align: 'right' }, // Added align
 ];
 
 // Benchmark Runners
 const benchmarkRunners = {
-  1: { name: 'Initialization', runner: () => runInitializationBenchmark({ ITERATIONS: ITERATIONS * 10  }), columns: timeColumns() },
+  1: {
+    name: 'Initialization',
+    runner: () => runInitializationBenchmark({ ITERATIONS: ITERATIONS * 10 }),
+    columns: timeColumns(),
+  },
   2: {
     name: 'Register (Single Instance)',
     runner: () => runRegisterSingleBenchmark({ REGISTER_ITERATIONS }),
@@ -86,16 +93,7 @@ const benchmarkRunners = {
   7: {
     name: 'Emission',
     runner: () => runEmissionBenchmark({ LISTENER_COUNT, ITERATIONS: 50000 }),
-    columns: [ // Handled specially later
-      { header: 'mono (ms)', key: 'mono', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'Restrict (ms)', key: 'restrict', pad: 13, formatFn: formatResult, align: 'right' },
-      { header: 'EE3 (ms)', key: 'ee3', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'Mitt (ms)', key: 'mitt', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'Nano (ms)', key: 'nano', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'RxJS (ms)', key: 'rxjs', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'Node (ms)', key: 'nodeEvents', pad: padEmit, formatFn: formatResult, align: 'right' },
-      { header: 'Target (ms)', key: 'eventTarget', pad: padEmit, formatFn: formatResult, align: 'right' },
-    ],
+    columns: timeColumns(), // Use standard time columns
   },
   8: {
     name: 'Emission (Once)',
@@ -137,50 +135,24 @@ function shouldRun(id) {
 
 function getLibKey(libName) {
   switch (libName) {
-    case 'mono-event': return 'mono';
-    case 'Restrict': return 'restrict';
-    case 'EventEmitter3': return 'ee3';
-    case 'nanoevents': return 'nano';
-    case 'Node Events': return 'nodeEvents';
-    case 'EventTarget': return 'eventTarget';
-    default: return libName.toLowerCase(); // mitt, rxjs
+    case 'mono-event':
+      return 'mono';
+    case 'Restrict':
+      return 'restrict';
+    case 'EventEmitter3':
+      return 'ee3';
+    case 'nanoevents':
+      return 'nano';
+    case 'Node Events':
+      return 'nodeEvents';
+    case 'EventTarget':
+      return 'eventTarget';
+    default:
+      return libName.toLowerCase(); // mitt, rxjs
   }
 }
 
-function findBestValue(rows, colIndex, lowerIsBetter = true) {
-    let bestVal = null;
-    for (const row of rows) {
-        const value = row[colIndex];
-        const numericValue = (typeof value === 'object' && value !== null && value.perInstance !== undefined)
-                             ? value.perInstance // Handle memory object
-                             : value;
-
-        if (typeof numericValue === 'number' && !Number.isNaN(numericValue)) {
-            if (bestVal === null || (lowerIsBetter && numericValue < bestVal) || (!lowerIsBetter && numericValue > bestVal)) {
-                bestVal = numericValue;
-            }
-        }
-    }
-    return bestVal;
-}
-
-function createBestValueFormatter(baseFormatter, bestValue) { // Removed colIndex as it's not needed here
-    return (cell) => {
-        const formatted = baseFormatter(cell);
-        if (bestValue === null || formatted === '-') return formatted;
-
-        let originalValue = cell;
-        // Handle memory object structure for comparison
-        if (typeof cell === 'object' && cell !== null && cell.perInstance !== undefined) {
-            originalValue = cell.perInstance;
-        }
-
-        if (typeof originalValue === 'number' && !Number.isNaN(originalValue) && originalValue === bestValue) {
-            return `**${formatted}**`;
-        }
-        return formatted;
-    };
-}
+// Removed findBestValue and createBestValueFormatter, moved to utils.js
 
 // Main Execution
 if (!runAll) {
@@ -200,17 +172,30 @@ console.log(`Memory Instance Count: ${formatNumber(MEMORY_INSTANCE_COUNT)}`);
 console.log(`Memory Listeners per Instance: ${MEMORY_LISTENERS}`);
 console.log(`Comprehensive Scenario Instances: ${COMP_INSTANCE_COUNT}`);
 console.log(`Comprehensive Scenario Emit Count: ${COMP_EMIT_COUNT}`);
+if (typeof Deno !== 'undefined') {
+  console.log('Note: Memory results might be inaccurate when run with Deno.');
+}
 console.log('\n');
 
 const allResults = {};
-let memoryTestRun = false;
+let memoryTestRun = false; // Keep track if any memory test was attempted
 
-for (const id in benchmarkRunners) {
-  if (shouldRun(Number(id))) {
-    const { name, runner, columns: benchmarkColumns } = benchmarkRunners[id]; // Renamed columns to avoid conflict
+for (const idStr in benchmarkRunners) {
+  const id = Number(idStr);
+  if (shouldRun(id)) {
+    // Skip memory tests if not in Node.js
+    if (!isNode && (id === 9 || id === 10)) {
+      console.log(`----- [${id}] ${benchmarkRunners[id].name} -----`);
+      console.log('  Memory test skipped (requires Node.js runtime).');
+      console.log('');
+      continue; // Skip to the next benchmark
+    }
+
+    const { name, runner, columns: benchmarkColumns } = benchmarkRunners[id];
     const title = `----- [${id}] ${name} -----`;
     console.log(title);
     const startTime = performance.now();
+    // Run the benchmark scenario
     const scenarioResult = runner();
     const endTime = performance.now();
     console.log(`Completed in ${formatResult(endTime - startTime)} ms`);
@@ -235,92 +220,65 @@ for (const id in benchmarkRunners) {
         console.log(`  Total Avg Time -> Node Events: ${formatResult(scenarioResult.nodeEvents)} ms`);
         console.log(`  Total Avg Time -> EventTarget: ${formatResult(scenarioResult.eventTarget)} ms`);
         generateIntermediateTable = false;
-      } else if (id === '7') {
-        // Emission handled specially below
-        generateIntermediateTable = false;
+        // } else if (id === 7) { // Remove special handling for Emission (ID 7)
+        //   generateIntermediateTable = false;
       } else {
         // Other performance tests use the defined timeColumns
-        currentLibs = libs.filter((l) => l !== 'Restrict');
+        // For ID 7 (Emission), we want to include 'Restrict'
+        currentLibs = id === 7 ? libs : libs.filter((l) => l !== 'Restrict');
       }
 
       // Generate intermediate table using generateTable directly
       if (generateIntermediateTable && intermediateColumnsDefinition) {
-          const headers = ['Library', ...intermediateColumnsDefinition.map(c => c.header)];
-          const rows = [];
-          for (const libName of currentLibs) {
-              const libKey = getLibKey(libName);
-              const row = [libName];
-              for (const colDef of intermediateColumnsDefinition) {
-                  let value = null;
-                  if (scenarioResult[libKey]) {
-                      // Get the raw result object/value for the library
-                      const libResult = scenarioResult[libKey];
-                      if (libResult !== undefined) {
-                          if (colDef.key === 'memory') {
-                              // Pass the object or null to the formatter
-                              value = libResult;
-                          } else {
-                              // Assume time result is the direct value or nested under 'result'
-                              value = (typeof libResult === 'object' && libResult !== null && libResult.result !== undefined)
-                                      ? libResult.result
-                                      : libResult;
-                          }
-                      }
-                  }
-                  row.push(value !== undefined ? value : null);
+        const headers = ['Library', ...intermediateColumnsDefinition.map((c) => c.header)];
+        const rows = [];
+        for (const libName of currentLibs) {
+          const libKey = getLibKey(libName);
+          const row = [libName];
+          for (const colDef of intermediateColumnsDefinition) {
+            let value = null;
+            if (scenarioResult[libKey]) {
+              // Get the raw result object/value for the library
+              const libResult = scenarioResult[libKey];
+              if (libResult !== undefined) {
+                if (colDef.key === 'memory') {
+                  // Pass the object or null to the formatter
+                  value = libResult;
+                } else {
+                  // Assume time result is the direct value or nested under 'result'
+                  value =
+                    typeof libResult === 'object' && libResult !== null && libResult.result !== undefined
+                      ? libResult.result
+                      : libResult;
+                }
               }
-              rows.push(row);
+            }
+            row.push(value !== undefined ? value : null);
           }
+          rows.push(row);
+        }
 
-          const bestValues = intermediateColumnsDefinition.map((col, index) => {
-              return findBestValue(rows, index + 1); // +1 for Library column
-          });
+        const bestValues = intermediateColumnsDefinition.map((col, index) => {
+          return findBestValue(rows, index + 1); // +1 for Library column
+        });
 
-          const formatters = [
-              (v) => String(v), // Library name
-              ...intermediateColumnsDefinition.map((col, index) => {
-                  const bestVal = bestValues[index];
-                  return createBestValueFormatter(col.formatFn, bestVal);
-              })
-          ];
+        const formatters = [
+          (v) => String(v), // Library name
+          ...intermediateColumnsDefinition.map((col, index) => {
+            const bestVal = bestValues[index];
+            return createBestValueFormatter(col.formatFn, bestVal);
+          }),
+        ];
 
-          const paddings = [16, ...intermediateColumnsDefinition.map(c => c.pad || 10)];
-          const alignments = ['left', ...intermediateColumnsDefinition.map(c => c.align || 'right')];
+        const paddings = [16, ...intermediateColumnsDefinition.map((c) => c.pad || 10)];
+        const alignments = ['left', ...intermediateColumnsDefinition.map((c) => c.align || 'right')];
 
-          console.log(generateTable({ headers, rows, formatters, paddings, alignments }));
-
-      } else if (id === '7') {
-          // Special handling for Emission table (id 7)
-          const headers = ['Library', 'Result (ms)'];
-          const rows = [];
-          const emissionLibs = [
-            'mono-event', 'Restrict', 'EventEmitter3', 'mitt',
-            'nanoevents', 'RxJS', 'Node Events', 'EventTarget',
-          ];
-
-          for (const libName of emissionLibs) {
-            const libKey = getLibKey(libName);
-            rows.push([libName, scenarioResult[libKey] !== undefined ? scenarioResult[libKey] : null]);
-          }
-
-          const bestEmitValue = findBestValue(rows, 1);
-          const formatters = [
-              (v) => String(v),
-              createBestValueFormatter(formatResult, bestEmitValue)
-          ];
-
-          console.log(
-            generateTable({
-              headers,
-              rows,
-              formatters,
-              paddings: [16, 11],
-              alignments: ['left', 'right'],
-            }),
-          );
-      }
-    } else if (id === '9' || id === '10') {
-      console.log('  Memory test skipped (GC not exposed).');
+        console.log(generateTable({ headers, rows, formatters, paddings, alignments }));
+      } // Removed special else if block for ID 7
+    } else if (id === 9 || id === 10) {
+      // Check original condition for memory skip message
+      // This condition might be unreachable now due to the loop skip, but keep the message for clarity if needed elsewhere
+      console.log('  Memory test skipped (requires Node.js runtime or GC not exposed).');
     }
     console.log('');
   }
@@ -328,8 +286,12 @@ for (const id in benchmarkRunners) {
 
 // Summary Table
 console.log('\n----- Performance Summary (lower is better) -----');
+if (!isNode) {
+  console.log('Note: Memory results are only shown when run with Node.js.');
+}
 
-const summaryColumns = [
+// Define base summary columns (excluding memory)
+const baseSummaryColumns = [
   { header: 'Init (ms)', key: '1', pad: padInit, formatFn: formatResult, align: 'right' },
   { header: 'Register (Single) (ms)', key: '2', pad: padRegSingle, formatFn: formatResult, align: 'right' },
   { header: 'Register (Multi) (ms)', key: '3', pad: padRegMulti, formatFn: formatResult, align: 'right' },
@@ -338,16 +300,25 @@ const summaryColumns = [
   { header: 'Removal (Rnd) (ms)', key: '6', pad: padRemRnd, formatFn: formatResult, align: 'right' },
   { header: 'Emit (ms)', key: '7', pad: padEmit, formatFn: formatResult, align: 'right' },
   { header: 'Emit Once (ms)', key: '8', pad: padEmitOnce, formatFn: formatResult, align: 'right' },
-  { header: 'Memory (Empty) (KB/inst)', key: '9', pad: padMemEmpty, formatFn: formatMemory, align: 'right' },
-  {
-    header: `Memory (${MEMORY_LISTENERS} Listeners) (KB/inst)`,
-    key: '10',
-    pad: padMemListeners,
-    formatFn: formatMemory,
-    align: 'right',
-  },
+  // Memory columns will be added conditionally
   { header: 'Comprehensive (ms)', key: '11', pad: padComp, formatFn: formatResult, align: 'right' },
 ];
+
+// Conditionally add memory columns if running in Node.js
+const summaryColumns = isNode
+  ? [
+      ...baseSummaryColumns.slice(0, 8), // Columns before memory
+      { header: 'Memory (Empty) (KB/inst)', key: '9', pad: padMemEmpty, formatFn: formatMemory, align: 'right' },
+      {
+        header: `Memory (${MEMORY_LISTENERS} Listeners) (KB/inst)`,
+        key: '10',
+        pad: padMemListeners,
+        formatFn: formatMemory,
+        align: 'right',
+      },
+      ...baseSummaryColumns.slice(8), // Columns after memory (Comprehensive)
+    ]
+  : baseSummaryColumns; // Exclude memory columns if not Node.js
 
 const summaryHeaders = ['Library', ...summaryColumns.map((c) => c.header)];
 const summaryRows = [];
@@ -367,20 +338,21 @@ for (const lib of libs) {
     } else if (benchId === '11' && allResults[11]) {
       value = allResults[11][libKey];
     } else if (benchId === '7' && result) {
-        value = result[libKey];
+      value = result[libKey];
     } else if (result) {
       // Get the raw result object/value for the library
       const libResult = result[libKey];
       if (libResult !== undefined) {
-          if (column.formatFn === formatMemory) {
-              // Pass the object or null to the formatter
-              value = libResult;
-          } else {
-              // Assume time result is the direct value or nested under 'result'
-              value = (typeof libResult === 'object' && libResult !== null && libResult.result !== undefined)
-                      ? libResult.result
-                      : libResult;
-          }
+        if (column.formatFn === formatMemory) {
+          // Pass the object or null to the formatter
+          value = libResult;
+        } else {
+          // Assume time result is the direct value or nested under 'result'
+          value =
+            typeof libResult === 'object' && libResult !== null && libResult.result !== undefined
+              ? libResult.result
+              : libResult;
+        }
       }
     }
     row.push(value !== undefined ? value : null);
@@ -388,18 +360,17 @@ for (const lib of libs) {
   summaryRows.push(row);
 }
 
-
 const summaryBestValues = summaryColumns.map((col, index) => {
-    const colIndex = index + 1;
-    return findBestValue(summaryRows, colIndex, true);
+  const colIndex = index + 1;
+  return findBestValue(summaryRows, colIndex, true);
 });
 
 const summaryFormatters = [
-    (v) => String(v),
-    ...summaryColumns.map((col, index) => {
-        const bestVal = summaryBestValues[index];
-        return createBestValueFormatter(col.formatFn, bestVal);
-    })
+  (v) => String(v),
+  ...summaryColumns.map((col, index) => {
+    const bestVal = summaryBestValues[index];
+    return createBestValueFormatter(col.formatFn, bestVal);
+  }),
 ];
 
 console.log(
@@ -408,7 +379,7 @@ console.log(
     rows: summaryRows,
     formatters: summaryFormatters,
     paddings: [16, ...summaryColumns.map((c) => c.pad || 10)],
-    alignments: ['left', ...summaryColumns.map(c => c.align || 'right')],
+    alignments: ['left', ...summaryColumns.map((c) => c.align || 'right')],
   }),
 );
 
@@ -437,16 +408,16 @@ if (shouldRun(11) && allResults[11]) {
     }
 
     const phaseBestValues = phaseColumns.map((col, index) => {
-        return findBestValue(phaseRows, index + 1);
+      return findBestValue(phaseRows, index + 1);
     });
 
     const phaseFormatters = [
-        (v) => String(v),
-        ...phaseColumns.map((col, index) => {
-            const bestVal = phaseBestValues[index];
-            const formatter = col.formatFn || formatResult;
-            return createBestValueFormatter(formatter, bestVal);
-        })
+      (v) => String(v),
+      ...phaseColumns.map((col, index) => {
+        const bestVal = phaseBestValues[index];
+        const formatter = col.formatFn || formatResult;
+        return createBestValueFormatter(formatter, bestVal);
+      }),
     ];
 
     console.log(
@@ -455,7 +426,7 @@ if (shouldRun(11) && allResults[11]) {
         rows: phaseRows,
         formatters: phaseFormatters,
         paddings: [16, ...phaseColumns.map((c) => c.pad || 10)],
-        alignments: ['left', ...phaseColumns.map(c => c.align || 'right')],
+        alignments: ['left', ...phaseColumns.map((c) => c.align || 'right')],
       }),
     );
   }
@@ -477,10 +448,7 @@ if (shouldRun(11) && allResults[11]) {
   }
 
   const bestCompValue = findBestValue(compRows, 1);
-  const compFormatters = [
-      (v) => String(v),
-      createBestValueFormatter(formatResult, bestCompValue)
-  ];
+  const compFormatters = [(v) => String(v), createBestValueFormatter(formatResult, bestCompValue)];
 
   console.log(
     generateTable({

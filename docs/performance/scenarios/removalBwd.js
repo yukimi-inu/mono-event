@@ -2,9 +2,9 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono } from '../../../dist/index.min.js';
-import { measureTimeAverage } from '../utils.js'; // Use measureTimeAverage
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
+import { measureTimeAverage } from '../utils.js';
 
 /**
  * Runs the backward listener removal benchmark.
@@ -19,8 +19,7 @@ export function runRemovalBwdBenchmark(config) {
   // Helper function to setup and return handlers/removers for a library
   function setupListeners(createFn, addFn) {
     const instance = createFn();
-    if (instance instanceof EventEmitter) instance.setMaxListeners(0);
-    if (instance instanceof EventTarget) setMaxListeners(0, instance);
+    // Removed setMaxListeners calls
     const removers = [];
     for (let i = 0; i < REMOVAL_ITERATIONS; i++) {
       const handler = () => {};
@@ -63,16 +62,18 @@ export function runRemovalBwdBenchmark(config) {
       () => createNanoEvents(),
       (inst, h) => inst.on('event', h),
     );
-    for (let i = REMOVAL_ITERATIONS - 1; i >= 0; i--) removers[i].remover(); // Call the unbind function
+    // nanoevents returns an unbind function from on()
+    for (let i = REMOVAL_ITERATIONS - 1; i >= 0; i--) removers[i].remover();
   }, runs);
 
   // RxJS
   results.rxjs = measureTimeAverage(() => {
     const { instance, removers } = setupListeners(
       () => new Subject(),
-      (inst, h) => inst.subscribe(h),
+      (inst, h) => inst.subscribe(h), // subscribe returns a Subscription object
     );
-    for (let i = REMOVAL_ITERATIONS - 1; i >= 0; i--) removers[i].remover.unsubscribe(); // Call unsubscribe
+    // RxJS subscription object has an unsubscribe method
+    for (let i = REMOVAL_ITERATIONS - 1; i >= 0; i--) removers[i].remover.unsubscribe();
   }, runs);
 
   // node:events

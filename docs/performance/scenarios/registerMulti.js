@@ -2,8 +2,8 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono } from '../../../dist/index.min.js';
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
 import { measureTimeAverage } from '../utils.js';
 
 /**
@@ -12,12 +12,12 @@ import { measureTimeAverage } from '../utils.js';
  * @returns {object} Results object { mono, ee3, mitt, nano, rxjs, nodeEvents, eventTarget }.
  */
 export function runRegisterMultiBenchmark(config) {
-  const { REGISTER_MULTI_INSTANCE_COUNT, LISTENERS_PER_MULTI_INSTANCE } = config; // Use specific count
+  const { REGISTER_MULTI_INSTANCE_COUNT, LISTENERS_PER_MULTI_INSTANCE } = config;
   const results = {};
-  const handlers = []; // Store handlers for removal
+  const handlers = [];
   for (let i = 0; i < LISTENERS_PER_MULTI_INSTANCE; i++) {
     handlers.push(() => {
-      i;
+      i; // Simple operation inside handler
     });
   }
 
@@ -59,7 +59,7 @@ export function runRegisterMultiBenchmark(config) {
   results.nodeEvents = measureTimeAverage(() => {
     for (let i = 0; i < REGISTER_MULTI_INSTANCE_COUNT; i++) {
       const emitter = new EventEmitter();
-      emitter.setMaxListeners(LISTENERS_PER_MULTI_INSTANCE + 1); // Set based on expected listeners per instance
+      // emitter.setMaxListeners(LISTENERS_PER_MULTI_INSTANCE + 1); // Removed setMaxListeners
       for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) emitter.on('event', handlers[j]);
     }
   });
@@ -67,7 +67,7 @@ export function runRegisterMultiBenchmark(config) {
   results.eventTarget = measureTimeAverage(() => {
     for (let i = 0; i < REGISTER_MULTI_INSTANCE_COUNT; i++) {
       const target = new EventTarget();
-      setMaxListeners(LISTENERS_PER_MULTI_INSTANCE + 1, target); // Set based on expected listeners per instance
+      // setMaxListeners(LISTENERS_PER_MULTI_INSTANCE + 1, target); // Removed setMaxListeners
       for (let j = 0; j < LISTENERS_PER_MULTI_INSTANCE; j++) target.addEventListener('event', handlers[j]);
     }
   });

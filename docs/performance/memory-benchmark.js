@@ -1,588 +1,416 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import zlib from 'node:zlib';
 import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-// Memory usage benchmark for event libraries
 import { mono } from '../../dist/index.min.js';
+// Import necessary functions from utils.js
+import {
+  formatNumber,
+  formatResult, // Keep for potential future use if needed
+  formatMemory, // Used for KB conversion
+  generateTable,
+  findBestValue,
+  createBestValueFormatter,
+} from './utils.js';
+import { EventEmitter as NodeEventEmitter, setMaxListeners } from 'node:events'; // Node.js specific import
 
-// Get current directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '../..');
+setMaxListeners(0);
 
-// Utility function to format numbers with commas
-function formatNumber(num) {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
+// --- Node.js Specific Imports and Setup ---
+const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
 
-// Utility function to format memory size
-function formatMemory(bytes) {
-  return `${(bytes / 1024).toFixed(2)} KB`;
-}
 
-// Utility function to format memory size with commas
-function formatMemoryWithCommas(bytes) {
-  const kb = bytes / 1024;
-  return `${formatNumber(kb.toFixed(2))} KB`;
-}
-
-// Function to format memory with stability info
-function formatMemoryWithStability(memory, count = 1) {
-  const value = count > 1 ? memory.total / count : memory.total;
-  const cv = (memory.stdDev / value) * 100; // Coefficient of variation
-  return `${formatMemory(value)} (CV: ${cv.toFixed(1)}%)`;
-}
-
-// Function to format memory with stability info and commas
-function formatMemoryWithStabilityAndCommas(memory, count = 1) {
-  const value = count > 1 ? memory.total / count : memory.total;
-  const cv = (memory.stdDev / value) * 100; // Coefficient of variation
-  return `${formatMemoryWithCommas(value)} (CV: ${cv.toFixed(1)}%)`;
-}
-
-// Utility function to format file size
-function formatSize(bytes) {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-// Function to get minified bundle size
-function getBundleSize(filePath) {
-  try {
-    const stats = fs.statSync(filePath);
-    return stats.size;
-  } catch (error) {
-    console.error(`Error reading file ${filePath}:`, error.message);
-    return 0;
-  }
-}
-
-// Function to get gzipped size
-function getGzippedSize(filePath) {
-  try {
-    const content = fs.readFileSync(filePath);
-    const gzipped = zlib.gzipSync(content);
-    return gzipped.length;
-  } catch (error) {
-    console.error(`Error calculating gzipped size for ${filePath}:`, error.message);
-    return 0;
-  }
-}
-
-// Function to find package size from package.json
-function getPackageSize(packageName) {
-  try {
-    const packageJsonPath = path.join(rootDir, 'node_modules', packageName, 'package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-
-    // Try to find the main minified file
-    let mainFile;
-    if (packageJson.unpkg) {
-      mainFile = path.join(rootDir, 'node_modules', packageName, packageJson.unpkg);
-    } else if (packageJson.jsdelivr) {
-      mainFile = path.join(rootDir, 'node_modules', packageName, packageJson.jsdelivr);
-    } else if (packageJson.browser) {
-      mainFile = path.join(rootDir, 'node_modules', packageName, packageJson.browser);
-    } else if (packageJson.main) {
-      mainFile = path.join(rootDir, 'node_modules', packageName, packageJson.main);
-    } else {
-      mainFile = path.join(rootDir, 'node_modules', packageName, 'index.js');
-    }
-
-    if (fs.existsSync(mainFile)) {
-      return {
-        path: mainFile,
-        size: getBundleSize(mainFile),
-        gzippedSize: getGzippedSize(mainFile),
-      };
-    }
-
-    // If main file not found, try common patterns
-    const possiblePaths = [
-      path.join(rootDir, 'node_modules', packageName, 'dist', `${packageName}.min.js`),
-      path.join(rootDir, 'node_modules', packageName, 'dist', 'index.min.js'),
-      path.join(rootDir, 'node_modules', packageName, 'umd', `${packageName}.min.js`),
-      path.join(rootDir, 'node_modules', packageName, 'lib', 'index.js'),
-      path.join(rootDir, 'node_modules', packageName, 'index.js'),
-    ];
-
-    for (const possiblePath of possiblePaths) {
-      if (fs.existsSync(possiblePath)) {
-        return {
-          path: possiblePath,
-          size: getBundleSize(possiblePath),
-          gzippedSize: getGzippedSize(possiblePath),
-        };
-      }
-    }
-
-    return { path: null, size: 0, gzippedSize: 0 };
-  } catch (error) {
-    console.error(`Error getting package size for ${packageName}:`, error.message);
-    return { path: null, size: 0, gzippedSize: 0 };
-  }
-}
-
-// Function to measure memory usage for a specific operation with multiple runs
+// Function to measure memory usage (simplified, returns only average total)
 function measureMemoryUsage(fn, runs = 5) {
-  // Increased runs for more stability
-  // Array to store memory usage results
+  if (!isNode || !global.gc) {
+      console.warn("GC not available or not in Node.js, skipping precise memory measurement.");
+      return { total: 0, stdDev: 0 }; // Return zero/default if GC not available
+  }
+
   const measurements = [];
-  let result;
+  const stabilizeMemory = new Array(1000000).fill(0); // Keep stabilization
 
-  // Allocate a large array to stabilize memory before measurements
-  const stabilizeMemory = new Array(1000000).fill(0);
-
-  // Run multiple times to get more stable results
   for (let i = 0; i < runs; i++) {
-    // Force garbage collection before measurement
-    if (global.gc) {
-      global.gc();
-      global.gc(); // Run twice to be more thorough
-      global.gc(); // Run a third time for good measure
-    }
-
-    // Wait for system to stabilize
+    global.gc(); global.gc(); global.gc(); // Force GC
     const stabilizeStart = Date.now();
-    while (Date.now() - stabilizeStart < 100) {
-      // Increased wait time
-      // Busy wait to ensure GC has time to run
+    while (Date.now() - stabilizeStart < 100); // Wait
+
+    const startMemory = process.memoryUsage().heapUsed;
+    const createdObjects = fn(); // Execute function
+    // Keep reference briefly
+    if (Array.isArray(createdObjects) && createdObjects.length > 0) {
+        if (createdObjects[0] === null) console.log('Preventing optimization');
     }
-
-    // Measure memory before creating objects
-    const beforeMemory = process.memoryUsage();
-    const startMemory = beforeMemory.heapUsed;
-
-    // Execute the function that creates objects
-    let createdObjects;
-    if (i === 0) {
-      createdObjects = fn(); // Only keep the result from the first run
-      result = createdObjects;
-    } else {
-      createdObjects = fn(); // Just run the function for measurement
-    }
-
-    // Ensure objects are not garbage collected during measurement
-    // by accessing them in some way
-    if (Array.isArray(createdObjects)) {
-      // Touch the array to ensure it's not optimized away
-      for (let j = 0; j < Math.min(createdObjects.length, 10); j++) {
-        if (createdObjects[j] === null) {
-          console.log('This should never happen, just preventing optimization');
-        }
-      }
-    }
-
-    // Measure memory after creating objects
-    const afterMemory = process.memoryUsage();
-    const endMemory = afterMemory.heapUsed;
-
-    // Calculate memory used
+    const endMemory = process.memoryUsage().heapUsed;
     const used = endMemory - startMemory;
 
-    // Only add positive measurements
-    if (used > 0) {
-      measurements.push(used);
+    // Allow 0 as a valid measurement, exclude only negative values
+    if (used >= 0) {
+        measurements.push(used);
     }
 
-    // Wait between measurements
     const waitStart = Date.now();
-    while (Date.now() - waitStart < 200) {
-      // Increased wait time
-      // Busy wait to ensure measurements are independent
-    }
-
-    // Force garbage collection after measurement to clean up
-    if (global.gc) {
-      global.gc();
-      global.gc();
-    }
-
-    // Clear reference to created objects to allow GC
-    createdObjects = null;
+    while (Date.now() - waitStart < 200); // Wait between runs
+    global.gc(); global.gc(); // Cleanup
   }
 
-  // Clear stabilization memory
-  stabilizeMemory.length = 0;
+  stabilizeMemory.length = 0; // Clear stabilization array
 
-  // Sort measurements to remove outliers
+  if (measurements.length === 0) return { total: 0, stdDev: 0 }; // Handle no valid measurements
+
   measurements.sort((a, b) => a - b);
-
-  // Remove highest and lowest values if we have at least 4 measurements
-  let validMeasurements;
-  if (measurements.length >= 4) {
-    validMeasurements = measurements.slice(1, -1);
-  } else {
-    validMeasurements = measurements;
-  }
-
-  // Calculate average
+  const validMeasurements = measurements.length >= 4 ? measurements.slice(1, -1) : measurements;
   const sum = validMeasurements.reduce((acc, val) => acc + val, 0);
   const average = sum / validMeasurements.length;
+  const stdDev = calculateStdDev(validMeasurements, average);
 
-  return {
-    total: average,
-    result,
-    min: Math.min(...measurements),
-    max: Math.max(...measurements),
-    stdDev: calculateStdDev(validMeasurements, average),
-  };
+  return { total: average, stdDev };
 }
 
 // Calculate standard deviation
 function calculateStdDev(values, mean) {
   if (values.length <= 1) return 0;
-
-  const variance =
-    values.reduce((acc, val) => {
-      const diff = val - mean;
-      return acc + diff * diff;
-    }, 0) / values.length;
-
+  const variance = values.reduce((acc, val) => acc + (val - mean) ** 2, 0) / values.length;
   return Math.sqrt(variance);
 }
 
-console.log('\n=== Event Libraries Memory Usage Benchmark ===\n');
+// --- Benchmark Scenarios ---
 
-// Check if --expose-gc flag is used
-if (!global.gc) {
-  console.error('This benchmark requires the --expose-gc flag to be enabled.');
-  console.error('Please run with: node --expose-gc docs/performance/memory-benchmark.js');
-  process.exit(1);
+// Helper to run a memory scenario and store results
+// Re-add the runMemoryScenario function definition
+function runMemoryScenario(name, fn, count = 1) {
+  console.log(`\n===== ${name} =====`);
+  // Use template literal and formatNumber for count
+  console.log(
+    `Measuring memory for ${count > 1 ? `${formatNumber(count)} instances/operations` : '1 instance/operation'}...`,
+  );
+  const memoryResult = measureMemoryUsage(fn);
+  // Calculate per instance memory ONLY if count > 1, otherwise use total
+  const displayMemory = count > 1 ? memoryResult.total / count : memoryResult.total;
+
+  // Log result without CV
+  console.log(`Result: ${formatMemory(displayMemory)} KB ${count > 1 ? 'per instance' : ''}`);
+  return {
+    // Return an object compatible with benchmark.js structure
+    perInstance: count > 1 ? displayMemory : null, // Only set perInstance if count > 1
+    total: memoryResult.total, // Always store the total measured memory
+    // cv: cv, // CV removed from return object as well
+    raw: memoryResult, // Keep raw data if needed
+  };
 }
 
-// ===== Scenario 1: Basic Memory Usage (1 instance) =====
-console.log('===== Scenario 1: Basic Memory Usage (1 instance) =====');
 
-const COUNT = 5000; // Number of instances to create for accurate measurement (調整済み)
-
-console.log(`Creating ${formatNumber(COUNT)} instances of each library to measure average memory usage per instance\n`);
-
-// mono-event
-const monoMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < COUNT; i++) {
-    instances.push(mono());
-  }
-  return instances;
-});
-
-// EventEmitter3
-const ee3Memory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < COUNT; i++) {
-    instances.push(new EventEmitter3());
-  }
-  return instances;
-});
-
-// mitt
-const mittMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < COUNT; i++) {
-    instances.push(mitt());
-  }
-  return instances;
-});
-
-// nanoevents
-const nanoMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < COUNT; i++) {
-    instances.push(createNanoEvents());
-  }
-  return instances;
-});
-
-// RxJS
-const rxjsMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < COUNT; i++) {
-    instances.push(new Subject());
-  }
-  return instances;
-});
-
-console.log('Memory usage per instance:');
-console.log(`mono-event: ${formatMemoryWithStabilityAndCommas(monoMemory, COUNT)}`);
-console.log(`EventEmitter3: ${formatMemoryWithStabilityAndCommas(ee3Memory, COUNT)}`);
-console.log(`mitt: ${formatMemoryWithStabilityAndCommas(mittMemory, COUNT)}`);
-console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoMemory, COUNT)}`);
-console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsMemory, COUNT)}`);
-
-// ===== Scenario 2: Memory Usage with 500 Handlers =====
-console.log('\n===== Scenario 2: Memory Usage with 500 Handlers =====');
-
-const HANDLER_COUNT = 500; // Number of handlers to register (調整済み)
-
-// Create a dummy handler function
-const dummyHandler = () => {};
-
-// mono-event with 1000 handlers
-const monoWithHandlersMemory = measureMemoryUsage(() => {
-  const instance = mono();
-  for (let i = 0; i < HANDLER_COUNT; i++) {
-    instance.add(dummyHandler);
-  }
-  return instance;
-});
-
-// EventEmitter3 with 1000 handlers
-const ee3WithHandlersMemory = measureMemoryUsage(() => {
-  const instance = new EventEmitter3();
-  for (let i = 0; i < HANDLER_COUNT; i++) {
-    instance.on('event', dummyHandler);
-  }
-  return instance;
-});
-
-// mitt with 1000 handlers
-const mittWithHandlersMemory = measureMemoryUsage(() => {
-  const instance = mitt();
-  for (let i = 0; i < HANDLER_COUNT; i++) {
-    instance.on('event', dummyHandler);
-  }
-  return instance;
-});
-
-// nanoevents with 1000 handlers
-const nanoWithHandlersMemory = measureMemoryUsage(() => {
-  const instance = createNanoEvents();
-  for (let i = 0; i < HANDLER_COUNT; i++) {
-    instance.on('event', dummyHandler);
-  }
-  return instance;
-});
-
-// RxJS with 1000 handlers
-const rxjsWithHandlersMemory = measureMemoryUsage(() => {
-  const instance = new Subject();
-  for (let i = 0; i < HANDLER_COUNT; i++) {
-    instance.subscribe(dummyHandler);
-  }
-  return instance;
-});
-
-console.log(`Memory usage for 1 instance with ${formatNumber(HANDLER_COUNT)} handlers:`);
-console.log(`mono-event: ${formatMemoryWithStabilityAndCommas(monoWithHandlersMemory)}`);
-console.log(`EventEmitter3: ${formatMemoryWithStabilityAndCommas(ee3WithHandlersMemory)}`);
-console.log(`mitt: ${formatMemoryWithStabilityAndCommas(mittWithHandlersMemory)}`);
-console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMemory)}`);
-console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)}`);
-
-// ===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====
-console.log(
-  '\n===== Scenario 3: Concentrated Events (Few Instances with Many Events - 100 Instances × 1,000 Events) =====',
-);
-
-const EVENT_COUNT = 1000;
-const INSTANCE_COUNT = 100;
-const MONO_INSTANCE_COUNT = EVENT_COUNT * INSTANCE_COUNT;
-
-// Other libraries: 1000 events × 10 instances
-const ee3MultipleEventsMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < INSTANCE_COUNT; i++) {
-    const emitter = new EventEmitter3();
-    for (let j = 0; j < EVENT_COUNT; j++) {
-      emitter.on(`event${j}`, dummyHandler);
-    }
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-const mittMultipleEventsMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < INSTANCE_COUNT; i++) {
-    const emitter = mitt();
-    for (let j = 0; j < EVENT_COUNT; j++) {
-      emitter.on(`event${j}`, dummyHandler);
-    }
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-const nanoMultipleEventsMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < INSTANCE_COUNT; i++) {
-    const emitter = createNanoEvents();
-    for (let j = 0; j < EVENT_COUNT; j++) {
-      emitter.on(`event${j}`, dummyHandler);
-    }
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-// RxJS with multiple events
-const rxjsMultipleEventsMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < INSTANCE_COUNT; i++) {
-    const subjects = {};
-    for (let j = 0; j < EVENT_COUNT; j++) {
-      subjects[`event${j}`] = new Subject();
-      subjects[`event${j}`].subscribe(dummyHandler);
-    }
-    instances.push(subjects);
-  }
-  return instances;
-});
-
-// mono-event: 10000 instances (equivalent to 1000 events × 10 instances)
-const monoMultipleInstancesMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
-    const emitter = mono();
-    emitter.add(dummyHandler);
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-console.log(
-  `Memory comparison for ${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances vs ${formatNumber(MONO_INSTANCE_COUNT)} mono-event instances:`,
-);
-console.log(
-  `EventEmitter3 (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)}`,
-);
-console.log(
-  `mitt (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)}`,
-);
-console.log(
-  `nanoevents (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)}`,
-);
-console.log(
-  `RxJS (${formatNumber(EVENT_COUNT)} events × ${formatNumber(INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)}`,
-);
-console.log(
-  `mono-event (${formatNumber(MONO_INSTANCE_COUNT)} instances): ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`,
-);
-
-// ===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====
-console.log(
-  '\n===== Scenario 4: Distributed Events (Many Instances with Single Event - 100,000 Instances × 1 Event) =====',
-);
-
-console.log(`Creating ${formatNumber(MONO_INSTANCE_COUNT)} instances of each library to compare memory usage\n`);
-
-// EventEmitter3 with MONO_INSTANCE_COUNT instances
-const ee3ManyInstancesMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
-    const emitter = new EventEmitter3();
-    emitter.on('event', dummyHandler);
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-// mitt with MONO_INSTANCE_COUNT instances
-const mittManyInstancesMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
-    const emitter = mitt();
-    emitter.on('event', dummyHandler);
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-// nanoevents with MONO_INSTANCE_COUNT instances
-const nanoManyInstancesMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
-    const emitter = createNanoEvents();
-    emitter.on('event', dummyHandler);
-    instances.push(emitter);
-  }
-  return instances;
-});
-
-// RxJS with MONO_INSTANCE_COUNT instances
-const rxjsManyInstancesMemory = measureMemoryUsage(() => {
-  const instances = [];
-  for (let i = 0; i < MONO_INSTANCE_COUNT; i++) {
-    const subject = new Subject();
-    subject.subscribe(dummyHandler);
-    instances.push(subject);
-  }
-  return instances;
-});
-
-console.log(`Memory usage for ${formatNumber(MONO_INSTANCE_COUNT)} instances with 1 handler each:`);
-console.log(`mono-event: ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)}`);
-console.log(`EventEmitter3: ${formatMemoryWithStabilityAndCommas(ee3ManyInstancesMemory)}`);
-console.log(`mitt: ${formatMemoryWithStabilityAndCommas(mittManyInstancesMemory)}`);
-console.log(`nanoevents: ${formatMemoryWithStabilityAndCommas(nanoManyInstancesMemory)}`);
-console.log(`RxJS: ${formatMemoryWithStabilityAndCommas(rxjsManyInstancesMemory)}`);
-
-// ===== Bundle Size Benchmark =====
-console.log('\n===== Bundle Size Benchmark =====');
-
-// Define libraries to measure
+// Define Libraries
+// Use full names consistent with benchmark.js
 const libraries = {
-  'mono-event': { path: path.join(rootDir, 'dist', 'index.min.js') },
-  eventemitter3: { package: 'eventemitter3' },
-  mitt: { package: 'mitt' },
-  nanoevents: { package: 'nanoevents' },
-  rxjs: { package: 'rxjs' },
+  'mono-event': { create: () => mono() },
+  'EventEmitter3': { create: () => new EventEmitter3() },
+  'mitt': { create: () => mitt() },
+  'nanoevents': { create: () => createNanoEvents() },
+  'RxJS': { create: () => new Subject() },
+  // Add Node.js specific libraries conditionally
+  ...(isNode && NodeEventEmitter && { 'Node Events': { create: () => new NodeEventEmitter() } }),
+  // EventTarget is globally available
+  ...(typeof EventTarget !== 'undefined' && { 'EventTarget': { create: () => new EventTarget() } }),
 };
 
-// Measure bundle sizes
-const bundleSizes = {};
+const libsToRun = Object.keys(libraries); // Now contains full names
 
-for (const [library, info] of Object.entries(libraries)) {
-  let size = 0;
-  let gzippedSize = 0;
-  let filePath = '';
+// --- Scenario Definitions ---
+const scenarios = {
+  '1_basic': {
+    name: 'Scenario 1: Basic Memory Usage (per instance)',
+    count: 50000,
+    // run function now receives libKey (full name)
+    run: (libKey, count) => {
+      const libCreate = libraries[libKey]?.create;
+      if (!libCreate) return { total: null };
+      return runMemoryScenario(`Basic Usage - ${libKey}`, () => {
+        const instances = [];
+        for (let i = 0; i < count; i++) instances.push(libCreate());
+        return instances;
+      }, count);
+    },
+  },
+  '2_with_handlers': {
+    name: 'Scenario 2: Memory Usage with Handlers',
+    handlerCount: 10000,
+    // run function now receives libInfo with full name
+    run: (libInfo, handlerCount) => {
+      const dummyHandler = () => {};
+      const libCreate = libInfo.create;
+      const libName = libInfo.name; // Full name
+      if (!libCreate) return { total: null };
 
-  if (info.path) {
-    // Direct path provided
-    filePath = info.path;
-    size = getBundleSize(filePath);
-    gzippedSize = getGzippedSize(filePath);
-  } else if (info.package) {
-    // Find package in node_modules
-    const packageInfo = getPackageSize(info.package);
-    size = packageInfo.size;
-    gzippedSize = packageInfo.gzippedSize;
-    filePath = packageInfo.path || 'Not found';
-  }
+      const addHandlerFn = (() => {
+        if (libName === 'RxJS') return (instance, handler) => instance.subscribe(handler);
+        if (libName === 'mono-event') return (instance, handler) => instance.add(handler);
+        // Default for EventEmitter3, mitt, nanoevents, Node Events, EventTarget
+        return (instance, handler) => {
+            if (typeof instance.on === 'function') instance.on('event', handler);
+            else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
+        };
+      })();
 
-  bundleSizes[library] = { size, gzippedSize, filePath };
+      const result = measureMemoryUsage(() => {
+        const instance = libCreate();
+        for (let i = 0; i < handlerCount; i++) addHandlerFn(instance, dummyHandler);
+        return instance;
+      });
+      return { total: result.total }; // Return total memory for the single instance
+    },
+  },
+  '3_concentrated': {
+    name: 'Scenario 3: Concentrated Events (Few Instances, Many Events)',
+    eventCount: 1000,
+    instanceCount: 100,
+    run: (libInfo, eventCount, instanceCount) => {
+      const dummyHandler = () => {};
+      const libCreate = libInfo.create;
+      const libName = libInfo.name; // Full name
+      if (!libCreate) return { total: null };
+
+      // Skip for libraries that don't support multiple named events easily
+      if (libName === 'mono-event' || libName === 'EventTarget') {
+        console.log(`  Skipping Concentrated Events for ${libName} (not applicable)`);
+        return { total: null };
+      }
+
+      const addHandlerFn = (() => {
+        if (libName === 'RxJS') return null; // Special handling below
+        // Default for EventEmitter3, mitt, nanoevents, Node Events
+        return (instance, eventName, handler) => instance.on(eventName, handler);
+      })();
+
+      let result;
+      if (libName === 'RxJS') {
+        result = measureMemoryUsage(() => {
+          const instances = [];
+          for (let i = 0; i < instanceCount; i++) {
+            const subjects = {};
+            for (let j = 0; j < eventCount; j++) {
+              subjects[`event${j}`] = new Subject();
+              subjects[`event${j}`].subscribe(dummyHandler);
+            }
+            instances.push(subjects);
+          }
+          return instances;
+        });
+      } else {
+        result = measureMemoryUsage(() => {
+          const instances = [];
+          for (let i = 0; i < instanceCount; i++) {
+            const emitter = libCreate();
+            for (let j = 0; j < eventCount; j++) addHandlerFn(emitter, `event${j}`, dummyHandler);
+            instances.push(emitter);
+          }
+          return instances;
+        });
+      }
+      return { total: result.total };
+    },
+  },
+  '4_distributed': {
+    name: 'Scenario 4: Distributed Events (Many Instances, Single Event)',
+    instanceCount: 1000000,
+    run: (libInfo, instanceCount) => {
+      const dummyHandler = () => {};
+      const libCreate = libInfo.create;
+      const libName = libInfo.name; // Full name
+      if (!libCreate) return { total: null };
+
+      const addHandlerFn = (() => {
+        if (libName === 'RxJS') return (instance, handler) => instance.subscribe(handler);
+        if (libName === 'mono-event') return (instance, handler) => instance.add(handler);
+        // Default for EventEmitter3, mitt, nanoevents, Node Events, EventTarget
+        return (instance, handler) => {
+            if (typeof instance.on === 'function') instance.on('event', handler);
+            else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
+        };
+      })();
+
+      const result = measureMemoryUsage(() => {
+        const instances = [];
+        for (let i = 0; i < instanceCount; i++) {
+          const instance = libCreate();
+          addHandlerFn(instance, dummyHandler);
+          instances.push(instance);
+        }
+        return instances;
+      });
+      return { total: result.total };
+    },
+  },
+};
+
+// --- Main Execution ---
+// Wrap main logic in an async function to use await for imports
+async function main() {
+    console.log('\n=== Event Libraries Memory Usage Benchmark ===\n');
+
+    if (!isNode || typeof global === 'undefined' || !global.gc) {
+      console.error('This benchmark requires Node.js with the --expose-gc flag enabled.');
+      console.error('Please run with: node --expose-gc docs/performance/memory-benchmark.js');
+      process.exit(1);
+    }
+
+    // Update libraries object after potential async import
+    const currentLibraries = {
+      'mono-event': { create: () => mono() },
+      'EventEmitter3': { create: () => new EventEmitter3() },
+      'mitt': { create: () => mitt() },
+      'nanoevents': { create: () => createNanoEvents() },
+      'RxJS': { create: () => new Subject() },
+      ...(isNode && NodeEventEmitter && { 'Node Events': { create: () => new NodeEventEmitter() } }),
+      ...(typeof EventTarget !== 'undefined' && { 'EventTarget': { create: () => new EventTarget() } }),
+    };
+    const currentLibsToRun = Object.keys(currentLibraries); // Contains full names
+
+
+    const allResults = {};
+
+    // Run scenarios and display individual tables
+    for (const scenarioKey in scenarios) {
+      const scenario = scenarios[scenarioKey];
+      console.log(`\n----- ${scenario.name} -----`);
+      allResults[scenarioKey] = {};
+      const scenarioRows = [];
+      // Use full library names in the table
+      const scenarioHeaders = ['Library', 'Memory (KB)'];
+      const scenarioPaddings = [14, 18]; // Adjust padding if needed for longer names
+      const scenarioAlignments = ['left', 'right'];
+
+      for (const libKey of currentLibsToRun) { // libKey is now full name
+        if (!currentLibraries[libKey]) { // Check if library is available
+            allResults[scenarioKey][libKey] = { total: null };
+            scenarioRows.push([libKey, null]); // Add row with null result
+            continue;
+        }
+
+        const libInfo = { create: currentLibraries[libKey].create, name: libKey }; // libKey is the full name
+        let result;
+        if (scenarioKey === '1_basic') result = scenario.run(libKey, scenario.count); // Pass full name
+        else if (scenarioKey === '2_with_handlers') result = scenario.run(libInfo, scenario.handlerCount);
+        else if (scenarioKey === '3_concentrated') result = scenario.run(libInfo, scenario.eventCount, scenario.instanceCount);
+        else if (scenarioKey === '4_distributed') result = scenario.run(libInfo, scenario.instanceCount);
+
+        allResults[scenarioKey][libKey] = result;
+
+        // Prepare row for individual table
+        let displayValue = null;
+        if (result && typeof result.total === 'number') {
+            if (scenarioKey === '1_basic') {
+                displayValue = result.total / scenario.count; // Per instance
+            } else {
+                displayValue = result.total; // Total
+            }
+        }
+        scenarioRows.push([libKey, displayValue]); // Use full name (libKey)
+      }
+
+       // Find best value for the individual table
+       const bestIndividualValue = findBestValue(scenarioRows, 1, true); // Check second column (index 1)
+
+       // Formatters for individual table
+       const individualFormatters = [
+           (v) => String(v),
+           createBestValueFormatter(formatMemory, bestIndividualValue) // Use formatMemory, highlight best
+       ];
+
+       // Display individual table
+       console.log(generateTable({
+           headers: scenarioHeaders,
+           rows: scenarioRows,
+           formatters: individualFormatters,
+           paddings: scenarioPaddings,
+           alignments: scenarioAlignments,
+       }));
+    }
+
+    // --- Summary Table ---
+    console.log('\n===== Memory Usage Summary =====');
+
+    const summaryHeaders = [
+      'Library',
+      'Per Instance (KB)', // Scenario 1
+      `With ${formatNumber(scenarios['2_with_handlers'].handlerCount)} Handlers (KB)`, // Scenario 2
+      `${formatNumber(scenarios['3_concentrated'].eventCount)} Events × ${formatNumber(scenarios['3_concentrated'].instanceCount)} Instances (KB)`, // Scenario 3
+      `${formatNumber(scenarios['4_distributed'].instanceCount)} Instances (Total KB)`, // Scenario 4
+    ];
+
+    const summaryRows = [];
+    // Adjust padding for potentially longer library names
+    const summaryPaddings = [14, 18, 25, 35, 30];
+    const summaryAlignments = ['left', 'right', 'right', 'right', 'right'];
+
+    const getResult = (scenarioKey, libKey) => allResults[scenarioKey]?.[libKey] || { total: null };
+
+    for (const libKey of currentLibsToRun) { // libKey is now full name
+      const rowData = [
+        libKey, // Use full name
+        getResult('1_basic', libKey),
+        getResult('2_with_handlers', libKey),
+        getResult('3_concentrated', libKey),
+        getResult('4_distributed', libKey),
+      ];
+      summaryRows.push(rowData);
+    }
+
+    // Find best values for each column (lower is better)
+    const bestValues = summaryHeaders.slice(1).map((header, index) => {
+      const colIndex = index + 1;
+      // Accessor logic based on column index
+      const accessor = (cell) => {
+          if (!cell) return null;
+          if (index === 0) return cell.total / scenarios['1_basic'].count; // Per instance for Scenario 1
+          return cell.total; // Total for Scenarios 2, 3, 4
+      };
+      return findBestValue(summaryRows, colIndex, true, accessor);
+    });
+
+    // Create formatters for summary table (without CV)
+    const summaryFormatters = [
+        (v) => String(v), // Library name
+        ...summaryHeaders.slice(1).map((header, index) => {
+            const bestVal = bestValues[index];
+            let baseFormatter;
+            let valueAccessor;
+
+            if (index === 0) { // Scenario 1: Per Instance
+                baseFormatter = (cell) => {
+                    if (cell && typeof cell.total === 'number') {
+                        return formatMemory(cell.total / scenarios['1_basic'].count);
+                    }
+                    return '-';
+                };
+                valueAccessor = (cell) => cell ? cell.total / scenarios['1_basic'].count : null;
+            } else { // Scenarios 2, 3, 4: Total
+                baseFormatter = (cell) => {
+                    if (cell && typeof cell.total === 'number') {
+                        return formatMemory(cell.total);
+                    }
+                    return '-';
+                };
+                valueAccessor = (cell) => cell?.total;
+            }
+            return createBestValueFormatter(baseFormatter, bestVal, valueAccessor);
+        }),
+    ];
+
+
+    console.log(
+      generateTable({
+        headers: summaryHeaders,
+        rows: summaryRows,
+        formatters: summaryFormatters,
+        paddings: summaryPaddings,
+        alignments: summaryAlignments,
+      }),
+    );
 }
 
-console.log('| Library      | Minified Size | Gzipped Size |');
-console.log('|--------------|---------------|--------------|');
-
-for (const [library, info] of Object.entries(bundleSizes)) {
-  console.log(
-    `| ${library.padEnd(12)} | ${formatSize(info.size).padEnd(13)} | ${formatSize(info.gzippedSize).padEnd(12)} |`,
-  );
-}
-
-// ===== Memory Usage Summary =====
-console.log('\n===== Memory Usage Summary =====');
-
-console.log(`
-| Library      | Per Instance | With ${formatNumber(HANDLER_COUNT)} Handlers | ${formatNumber(EVENT_COUNT)} Events × ${formatNumber(INSTANCE_COUNT)} Instances | ${formatNumber(MONO_INSTANCE_COUNT)} Instances | Bundle Size | Gzipped Size |
-|--------------|--------------|-----------------|--------------------------|-----------------|-------------|--------------|
-| mono-event   | ${formatMemoryWithStabilityAndCommas(monoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(monoWithHandlersMemory)} | - | ${formatMemoryWithStabilityAndCommas(monoMultipleInstancesMemory)} | ${formatSize(bundleSizes['mono-event'].size)} | ${formatSize(bundleSizes['mono-event'].gzippedSize)} |
-| EventEmitter3| ${formatMemoryWithStabilityAndCommas(ee3Memory, COUNT)} | ${formatMemoryWithStabilityAndCommas(ee3WithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(ee3MultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(ee3ManyInstancesMemory)} | ${formatSize(bundleSizes.eventemitter3.size)} | ${formatSize(bundleSizes.eventemitter3.gzippedSize)} |
-| mitt         | ${formatMemoryWithStabilityAndCommas(mittMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(mittWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(mittMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(mittManyInstancesMemory)} | ${formatSize(bundleSizes.mitt.size)} | ${formatSize(bundleSizes.mitt.gzippedSize)} |
-| nanoevents   | ${formatMemoryWithStabilityAndCommas(nanoMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(nanoWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(nanoMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(nanoManyInstancesMemory)} | ${formatSize(bundleSizes.nanoevents.size)} | ${formatSize(bundleSizes.nanoevents.gzippedSize)} |
-| RxJS         | ${formatMemoryWithStabilityAndCommas(rxjsMemory, COUNT)} | ${formatMemoryWithStabilityAndCommas(rxjsWithHandlersMemory)} | ${formatMemoryWithStabilityAndCommas(rxjsMultipleEventsMemory)} | ${formatMemoryWithStabilityAndCommas(rxjsManyInstancesMemory)} | ${formatSize(bundleSizes.rxjs.size)} | ${formatSize(bundleSizes.rxjs.gzippedSize)} |
-`);
+// Execute the main async function
+main().catch(err => {
+    console.error("Benchmark failed:", err);
+    process.exit(1);
+});

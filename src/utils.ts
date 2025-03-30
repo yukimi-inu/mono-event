@@ -1,6 +1,6 @@
-import type {Caller, EventOptions, GenericFunction} from './types';
-import type {AsyncEventHandler} from './types/async';
-import type {EventHandler} from './types/sync';
+import type { Caller, EventOptions, GenericFunction } from './types';
+import type { AsyncEventHandler } from './types/async';
+import type { EventHandler } from './types/sync';
 
 /**
  * A compact structure that stores listener information
@@ -141,8 +141,8 @@ export async function executeAsyncHandler<T>(
 }
 
 function emitSyncHandlers<T>(
-  listeners: CompactListener<EventHandler<T>>[] | null, // Changed Map to Array
-  onceListeners: CompactListener<EventHandler<T>>[] | null, // Changed Map to Array
+  listeners: CompactListener<EventHandler<T>>[] | null,
+  onceListeners: CompactListener<EventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
@@ -166,8 +166,8 @@ function emitSyncHandlers<T>(
 }
 
 async function emitAsyncHandlers<T>(
-  listeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
-  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   parallel: boolean,
   continueOnError: boolean,
@@ -184,8 +184,8 @@ async function emitAsyncHandlers<T>(
  * Handles async emission in parallel using Arrays (handles null).
  */
 async function emitAsyncParallel<T>(
-  listeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
-  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
@@ -218,8 +218,8 @@ async function emitAsyncParallel<T>(
  * Handles async emission sequentially using Arrays (handles null).
  */
 async function emitAsyncSequential<T>(
-  listeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
-  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null, // Changed Map to Array
+  listeners: CompactListener<AsyncEventHandler<T>>[] | null,
+  onceListeners: CompactListener<AsyncEventHandler<T>>[] | null,
   args: T,
   continueOnError: boolean,
   logErrors: boolean,
@@ -243,26 +243,27 @@ async function emitAsyncSequential<T>(
   }
 }
 
+// --- Base Event Methods ---
 const baseEventMethods = {
   add<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): () => void {
-    const {handler, caller, options} = parseAddArgs<H>(args);
-    const listener: CompactListener<H> = {h: handler, c: caller};
+    const { handler, caller, options } = parseAddArgs<H>(args);
+    const listener: CompactListener<H> = { h: handler, c: caller };
 
-    let targetArray: CompactListener<H>[]; // Renamed from targetMap
+    let targetArray: CompactListener<H>[];
 
     if (options.once) {
       if (!this.onceListeners) {
-        this.onceListeners = []; // Initialize as array
+        this.onceListeners = [];
       }
       targetArray = this.onceListeners;
     } else {
       if (!this.listeners) {
-        this.listeners = []; // Initialize as array
+        this.listeners = [];
       }
       targetArray = this.listeners;
     }
 
-    targetArray.push(listener); // Use push instead of set
+    targetArray.push(listener);
 
     const self = this;
     return function unsubscribe() {
@@ -275,37 +276,44 @@ const baseEventMethods = {
   },
 
   remove<H extends GenericFunction>(this: BaseEventContext<H>, ...args: unknown[]): boolean {
-    const {handler, caller} = parseRemoveArgs<H>(args);
-
+    const { handler, caller } = parseRemoveArgs<H>(args);
     let removed = false;
+
+    // Search listeners array backwards using a for loop
     if (this.listeners) {
-      const index = this.listeners.findIndex((l) => l.h === handler && l.c === caller);
-      if (index !== -1) {
-        this.listeners.splice(index, 1);
-        removed = true;
+      for (let i = this.listeners.length - 1; i >= 0; i--) {
+        const listener = this.listeners[i];
+        if (listener.h === handler && listener.c === caller) {
+          this.listeners.splice(i, 1);
+          removed = true;
+          break; // Exit loop once found and removed
+        }
       }
     }
 
+    // Search onceListeners array backwards using a for loop if not removed from listeners
     if (!removed && this.onceListeners) {
-      const index = this.onceListeners.findIndex((l) => l.h === handler && l.c === caller);
-      if (index !== -1) {
-        this.onceListeners.splice(index, 1);
-        removed = true;
+      for (let i = this.onceListeners.length - 1; i >= 0; i--) {
+        const listener = this.onceListeners[i];
+        if (listener.h === handler && listener.c === caller) {
+          this.onceListeners.splice(i, 1);
+          removed = true;
+          break; // Exit loop once found and removed
+        }
       }
     }
-
     return removed;
   },
 
   removeAll<H extends GenericFunction>(this: BaseEventContext<H>): void {
-    if (this.listeners) this.listeners.length = 0; // Clear array
-    if (this.onceListeners) this.onceListeners.length = 0; // Clear array
+    if (this.listeners) this.listeners.length = 0;
+    if (this.onceListeners) this.onceListeners.length = 0;
   },
 };
 
+// --- Sync Emit Methods ---
 const syncEmitMethods = {
   emit<T>(this: SyncEventContext<T>, args: T): void {
-    // Check array length instead of map size
     if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
       return;
     }
@@ -313,10 +321,10 @@ const syncEmitMethods = {
   },
 };
 
+// --- Restricted Sync Emit Methods ---
 const restrictedSyncEmitMethods = {
   emit<T>(this: RestrictedSyncEmitContext<T>, args: T): void {
-    const {listeners, onceListeners} = this.event;
-    // Check array length instead of map size
+    const { listeners, onceListeners } = this.event;
     if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
       return;
     }
@@ -324,9 +332,9 @@ const restrictedSyncEmitMethods = {
   },
 };
 
+// --- Async Emit Methods ---
 const asyncEmitMethods = {
   async emit<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
-    // Check array length instead of map size
     if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
       return;
     }
@@ -341,7 +349,6 @@ const asyncEmitMethods = {
   },
 
   async _emitParallel<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
-    // Check array length instead of map size
     if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
       return;
     }
@@ -349,7 +356,6 @@ const asyncEmitMethods = {
   },
 
   async _emitSequential<T>(this: AsyncEventContext<T>, args: T): Promise<void> {
-    // Check array length instead of map size
     if ((!this.listeners || this.listeners.length === 0) && (!this.onceListeners || this.onceListeners.length === 0)) {
       return;
     }
@@ -357,10 +363,10 @@ const asyncEmitMethods = {
   },
 };
 
+// --- Restricted Async Emit Methods ---
 const restrictedAsyncEmitMethods = {
   async emit<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
-    // Check array length instead of map size
+    const { listeners, onceListeners } = this.event;
     if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
       return;
     }
@@ -368,8 +374,7 @@ const restrictedAsyncEmitMethods = {
   },
 
   async _emitParallel<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
-    // Check array length instead of map size
+    const { listeners, onceListeners } = this.event;
     if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
       return;
     }
@@ -377,8 +382,7 @@ const restrictedAsyncEmitMethods = {
   },
 
   async _emitSequential<T>(this: RestrictedAsyncEmitContext<T>, args: T): Promise<void> {
-    const {listeners, onceListeners} = this.event;
-    // Check array length instead of map size
+    const { listeners, onceListeners } = this.event;
     if ((!listeners || listeners.length === 0) && (!onceListeners || onceListeners.length === 0)) {
       return;
     }
@@ -386,6 +390,7 @@ const restrictedAsyncEmitMethods = {
   },
 };
 
+// --- Prototypes ---
 export const monoProto = Object.create(null);
 Object.assign(monoProto, baseEventMethods, syncEmitMethods);
 

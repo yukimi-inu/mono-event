@@ -2,9 +2,9 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Ensure setMaxListeners is imported
-import { mono } from '../../../dist/index.min.js';
-import { measureTimeAverage, shuffleArray } from '../utils.js'; // Use measureTimeAverage
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono } from 'mono-event'; // Use package name
+import { measureTimeAverage, shuffleArray } from '../utils.js';
 
 /**
  * Runs the random listener removal benchmark.
@@ -19,8 +19,7 @@ export function runRemovalRndBenchmark(config) {
   // Helper function to setup and return handlers/removers for a library
   function setupListeners(createFn, addFn) {
     const instance = createFn();
-    if (instance instanceof EventEmitter) instance.setMaxListeners(0);
-    if (instance instanceof EventTarget) setMaxListeners(0, instance);
+    // Removed setMaxListeners calls as they are Node.js specific or handled internally
     const removers = [];
     const indices = [];
     for (let i = 0; i < REMOVAL_ITERATIONS; i++) {
@@ -67,16 +66,18 @@ export function runRemovalRndBenchmark(config) {
       () => createNanoEvents(),
       (inst, h) => inst.on('event', h),
     );
-    for (const index of shuffledIndices) removers[index].remover(); // Call the unbind function
+    // nanoevents returns an unbind function from on()
+    for (const index of shuffledIndices) removers[index].remover();
   }, runs);
 
   // RxJS
   results.rxjs = measureTimeAverage(() => {
     const { instance, removers, shuffledIndices } = setupListeners(
       () => new Subject(),
-      (inst, h) => inst.subscribe(h),
+      (inst, h) => inst.subscribe(h), // subscribe returns a Subscription object
     );
-    for (const index of shuffledIndices) removers[index].remover.unsubscribe(); // Call unsubscribe
+    // RxJS subscription object has an unsubscribe method
+    for (const index of shuffledIndices) removers[index].remover.unsubscribe();
   }, runs);
 
   // node:events

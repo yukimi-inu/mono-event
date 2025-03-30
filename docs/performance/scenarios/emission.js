@@ -2,9 +2,9 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter, setMaxListeners } from 'node:events'; // Import setMaxListeners
-import { mono, monoRestrict } from '../../../dist/index.min.js';
-import { measureTimeAverage } from '../utils.js'; // Use measureTimeAverage
+import { EventEmitter } from 'node:events'; // Removed setMaxListeners import
+import { mono, monoRestrict } from 'mono-event'; // Use package name
+import { measureTimeAverage } from '../utils.js';
 
 /**
  * Runs the event emission benchmark.
@@ -29,7 +29,7 @@ export function runEmissionBenchmark(config) {
   const monoEmitEvent = mono();
   for (let i = 0; i < LISTENER_COUNT; i++) monoEmitEvent.add(handlers[i]);
   results.mono = measureTimeAverage(() => {
-    counter = 0; // Reset counter for each run if needed, though likely optimized away
+    counter = 0;
     for (let i = 0; i < ITERATIONS; i++) monoEmitEvent.emit();
   }, runs);
 
@@ -75,7 +75,7 @@ export function runEmissionBenchmark(config) {
 
   // node:events
   const nodeEmitterEmit = new EventEmitter();
-  nodeEmitterEmit.setMaxListeners(0);
+  // nodeEmitterEmit.setMaxListeners(0); // Removed setMaxListeners
   for (let i = 0; i < LISTENER_COUNT; i++) nodeEmitterEmit.on('event', handlers[i]);
   results.nodeEvents = measureTimeAverage(() => {
     counter = 0;
@@ -84,7 +84,7 @@ export function runEmissionBenchmark(config) {
 
   // EventTarget
   const eventTargetEmit = new EventTarget();
-  setMaxListeners(0, eventTargetEmit); // Ensure max listeners is set for EventTarget as well
+  // setMaxListeners(0, eventTargetEmit); // Removed setMaxListeners
   for (let i = 0; i < LISTENER_COUNT; i++) eventTargetEmit.addEventListener('event', handlers[i]);
   results.eventTarget = measureTimeAverage(() => {
     counter = 0;

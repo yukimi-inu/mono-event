@@ -3,24 +3,26 @@ import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
 import { EventEmitter } from 'node:events';
-import { mono } from '../../../dist/index.min.js';
+import { mono } from 'mono-event'; // Use package name
 import { forceGC } from '../utils.js';
 
 /**
  * Measures memory usage for creating empty instances.
+ * Note: Requires Node.js with --expose-gc flag. Results may be inaccurate otherwise.
  * @param {object} config Configuration object with MEMORY_INSTANCE_COUNT.
  * @returns {object | null} Results object { mono, ee3, mitt, nano, rxjs, nodeEvents, eventTarget } or null if GC not available.
  */
 export function runMemoryEmptyBenchmark(config) {
   const { MEMORY_INSTANCE_COUNT } = config;
 
-  if (!((typeof global !== 'undefined' && global.gc) || (typeof Bun !== 'undefined' && Bun.gc))) {
-    console.log('Memory usage test skipped (GC not exposed).');
+  // Check for Node.js specific GC availability
+  if (!(typeof process !== 'undefined' && process.memoryUsage && global.gc)) {
+    console.log('Memory usage test skipped (requires Node.js with --expose-gc flag).');
     return null;
   }
 
   function measure(createFn, count = MEMORY_INSTANCE_COUNT) {
-    forceGC();
+    forceGC(); // Attempt GC, might not be effective outside Node.js
     const startMemory = process.memoryUsage().heapUsed;
     const instances = [];
     for (let i = 0; i < count; i++) instances.push(createFn());
@@ -37,8 +39,8 @@ export function runMemoryEmptyBenchmark(config) {
   results.mitt = measure(() => mitt());
   results.nano = measure(() => createNanoEvents());
   results.rxjs = measure(() => new Subject());
-  results.nodeEvents = measure(() => new EventEmitter()); // Added node:events
-  results.eventTarget = measure(() => new EventTarget()); // Added EventTarget
+  results.nodeEvents = measure(() => new EventEmitter());
+  results.eventTarget = measure(() => new EventTarget());
 
   return results;
 }

@@ -2,8 +2,8 @@ import EventEmitter3 from 'eventemitter3';
 import mitt from 'mitt';
 import { createNanoEvents } from 'nanoevents';
 import { Subject } from 'rxjs';
-import { EventEmitter } from 'node:events'; // Import Node's EventEmitter
-import { mono } from '../../../dist/index.min.js';
+import { EventEmitter } from 'node:events';
+import { mono } from 'mono-event'; // Use package name
 import { measureTimeAverage } from '../utils.js';
 
 /**
@@ -31,11 +31,9 @@ export function runInitializationBenchmark(config) {
     for (let i = 0; i < ITERATIONS; i++) new Subject();
   });
   results.nodeEvents = measureTimeAverage(() => {
-    // Added node:events
     for (let i = 0; i < ITERATIONS; i++) new EventEmitter();
   });
   results.eventTarget = measureTimeAverage(() => {
-    // Added EventTarget
     for (let i = 0; i < ITERATIONS; i++) new EventTarget();
   });
 
