@@ -1,12 +1,14 @@
 {
   "name": "mono-event",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "A minimal, type-safe single-event management library for JavaScript/TypeScript",
   "type": "module",
   "main": "dist/index.min.js",
   "module": "dist/index.min.js",
   "types": "dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.min.js",
@@ -30,7 +32,14 @@
     "lint": "biome lint .",
     "check": "biome check --apply ."
   },
-  "keywords": ["event", "events", "typescript", "javascript", "pubsub", "emitter"],
+  "keywords": [
+    "event",
+    "events",
+    "typescript",
+    "javascript",
+    "pubsub",
+    "emitter"
+  ],
   "author": "yukimi-inu",
   "license": "MIT",
   "repository": {

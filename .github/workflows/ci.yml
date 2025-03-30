@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -32,5 +32,26 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
+      - name: Test (Vitest)
         run: npm test
+
+      # Only run on Node 20.x
+      - name: Setup Deno
+        if: matrix.node-version == '20.x'
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x # Use latest stable Deno
+
+      - name: Test (Deno)
+        if: matrix.node-version == '20.x'
+        run: npm run test:deno
+
+      - name: Setup Bun
+        if: matrix.node-version == '20.x'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest # Use latest stable Bun
+
+      - name: Test (Bun)
+        if: matrix.node-version == '20.x'
+        run: npm run test:bun

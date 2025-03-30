@@ -1,10 +1,12 @@
 // @ts-nocheck
 // Bunでのテスト実行をサポートするためのエントリーポイント
-import { describe, expect, it } from 'bun:test';
-import { mono, monoAsync, monoRestrict, monoRestrictAsync } from './dist/index.min.js';
+import { describe, expect, it } from 'bun:test'; // Remove mock import
+import { mono, monoAsync, monoRestrict, monoRestrictAsync } from './dist/index.min.js'; // Remove decorator imports
+
+// Remove delay helper function
 
 describe('mono-event in Bun', () => {
-  // 基本的なテスト
+  // Basic tests (existing)
   it('mono basic test', () => {
     const event = mono();
     let received = '';

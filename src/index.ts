@@ -24,3 +24,4 @@ export { mono } from './mono';
 export { monoAsync } from './monoAsync';
 export { monoRestrict } from './monoRestrict';
 export { monoRestrictAsync } from './monoRestrictAsync';
+export { monoDebounce, monoThrottle } from './monoDecorators';

@@ -19,19 +19,20 @@ setMaxListeners(0);
 // --- Node.js Specific Imports and Setup ---
 const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
 
-
 // Function to measure memory usage (simplified, returns only average total)
 function measureMemoryUsage(fn, runs = 5) {
   if (!isNode || !global.gc) {
-      console.warn("GC not available or not in Node.js, skipping precise memory measurement.");
-      return { total: 0, stdDev: 0 }; // Return zero/default if GC not available
+    console.warn('GC not available or not in Node.js, skipping precise memory measurement.');
+    return { total: 0, stdDev: 0 }; // Return zero/default if GC not available
   }
 
   const measurements = [];
   const stabilizeMemory = new Array(1000000).fill(0); // Keep stabilization
 
   for (let i = 0; i < runs; i++) {
-    global.gc(); global.gc(); global.gc(); // Force GC
+    global.gc();
+    global.gc();
+    global.gc(); // Force GC
     const stabilizeStart = Date.now();
     while (Date.now() - stabilizeStart < 100); // Wait
 
@@ -39,19 +40,20 @@ function measureMemoryUsage(fn, runs = 5) {
     const createdObjects = fn(); // Execute function
     // Keep reference briefly
     if (Array.isArray(createdObjects) && createdObjects.length > 0) {
-        if (createdObjects[0] === null) console.log('Preventing optimization');
+      if (createdObjects[0] === null) console.log('Preventing optimization');
     }
     const endMemory = process.memoryUsage().heapUsed;
     const used = endMemory - startMemory;
 
     // Allow 0 as a valid measurement, exclude only negative values
     if (used >= 0) {
-        measurements.push(used);
+      measurements.push(used);
     }
 
     const waitStart = Date.now();
     while (Date.now() - waitStart < 200); // Wait between runs
-    global.gc(); global.gc(); // Cleanup
+    global.gc();
+    global.gc(); // Cleanup
   }
 
   stabilizeMemory.length = 0; // Clear stabilization array
@@ -99,19 +101,18 @@ function runMemoryScenario(name, fn, count = 1) {
   };
 }
 
-
 // Define Libraries
 // Use full names consistent with benchmark.js
 const libraries = {
   'mono-event': { create: () => mono() },
-  'EventEmitter3': { create: () => new EventEmitter3() },
-  'mitt': { create: () => mitt() },
-  'nanoevents': { create: () => createNanoEvents() },
-  'RxJS': { create: () => new Subject() },
+  EventEmitter3: { create: () => new EventEmitter3() },
+  mitt: { create: () => mitt() },
+  nanoevents: { create: () => createNanoEvents() },
+  RxJS: { create: () => new Subject() },
   // Add Node.js specific libraries conditionally
   ...(isNode && NodeEventEmitter && { 'Node Events': { create: () => new NodeEventEmitter() } }),
   // EventTarget is globally available
-  ...(typeof EventTarget !== 'undefined' && { 'EventTarget': { create: () => new EventTarget() } }),
+  ...(typeof EventTarget !== 'undefined' && { EventTarget: { create: () => new EventTarget() } }),
 };
 
 const libsToRun = Object.keys(libraries); // Now contains full names
@@ -125,11 +126,15 @@ const scenarios = {
     run: (libKey, count) => {
       const libCreate = libraries[libKey]?.create;
       if (!libCreate) return { total: null };
-      return runMemoryScenario(`Basic Usage - ${libKey}`, () => {
-        const instances = [];
-        for (let i = 0; i < count; i++) instances.push(libCreate());
-        return instances;
-      }, count);
+      return runMemoryScenario(
+        `Basic Usage - ${libKey}`,
+        () => {
+          const instances = [];
+          for (let i = 0; i < count; i++) instances.push(libCreate());
+          return instances;
+        },
+        count,
+      );
     },
   },
   '2_with_handlers': {
@@ -147,8 +152,8 @@ const scenarios = {
         if (libName === 'mono-event') return (instance, handler) => instance.add(handler);
         // Default for EventEmitter3, mitt, nanoevents, Node Events, EventTarget
         return (instance, handler) => {
-            if (typeof instance.on === 'function') instance.on('event', handler);
-            else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
+          if (typeof instance.on === 'function') instance.on('event', handler);
+          else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
         };
       })();
 
@@ -224,8 +229,8 @@ const scenarios = {
         if (libName === 'mono-event') return (instance, handler) => instance.add(handler);
         // Default for EventEmitter3, mitt, nanoevents, Node Events, EventTarget
         return (instance, handler) => {
-            if (typeof instance.on === 'function') instance.on('event', handler);
-            else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
+          if (typeof instance.on === 'function') instance.on('event', handler);
+          else if (typeof instance.addEventListener === 'function') instance.addEventListener('event', handler);
         };
       })();
 
@@ -246,171 +251,178 @@ const scenarios = {
 // --- Main Execution ---
 // Wrap main logic in an async function to use await for imports
 async function main() {
-    console.log('\n=== Event Libraries Memory Usage Benchmark ===\n');
+  console.log('\n=== Event Libraries Memory Usage Benchmark ===\n');
 
-    if (!isNode || typeof global === 'undefined' || !global.gc) {
-      console.error('This benchmark requires Node.js with the --expose-gc flag enabled.');
-      console.error('Please run with: node --expose-gc docs/performance/memory-benchmark.js');
-      process.exit(1);
-    }
+  if (!isNode || typeof global === 'undefined' || !global.gc) {
+    console.error('This benchmark requires Node.js with the --expose-gc flag enabled.');
+    console.error('Please run with: node --expose-gc docs/performance/memory-benchmark.js');
+    process.exit(1);
+  }
 
-    // Update libraries object after potential async import
-    const currentLibraries = {
-      'mono-event': { create: () => mono() },
-      'EventEmitter3': { create: () => new EventEmitter3() },
-      'mitt': { create: () => mitt() },
-      'nanoevents': { create: () => createNanoEvents() },
-      'RxJS': { create: () => new Subject() },
-      ...(isNode && NodeEventEmitter && { 'Node Events': { create: () => new NodeEventEmitter() } }),
-      ...(typeof EventTarget !== 'undefined' && { 'EventTarget': { create: () => new EventTarget() } }),
-    };
-    const currentLibsToRun = Object.keys(currentLibraries); // Contains full names
+  // Update libraries object after potential async import
+  const currentLibraries = {
+    'mono-event': { create: () => mono() },
+    EventEmitter3: { create: () => new EventEmitter3() },
+    mitt: { create: () => mitt() },
+    nanoevents: { create: () => createNanoEvents() },
+    RxJS: { create: () => new Subject() },
+    ...(isNode && NodeEventEmitter && { 'Node Events': { create: () => new NodeEventEmitter() } }),
+    ...(typeof EventTarget !== 'undefined' && { EventTarget: { create: () => new EventTarget() } }),
+  };
+  const currentLibsToRun = Object.keys(currentLibraries); // Contains full names
 
+  const allResults = {};
 
-    const allResults = {};
+  // Run scenarios and display individual tables
+  for (const scenarioKey in scenarios) {
+    const scenario = scenarios[scenarioKey];
+    console.log(`\n----- ${scenario.name} -----`);
+    allResults[scenarioKey] = {};
+    const scenarioRows = [];
+    // Use full library names in the table
+    const scenarioHeaders = ['Library', 'Memory (KB)'];
+    const scenarioPaddings = [14, 18]; // Adjust padding if needed for longer names
+    const scenarioAlignments = ['left', 'right'];
 
-    // Run scenarios and display individual tables
-    for (const scenarioKey in scenarios) {
-      const scenario = scenarios[scenarioKey];
-      console.log(`\n----- ${scenario.name} -----`);
-      allResults[scenarioKey] = {};
-      const scenarioRows = [];
-      // Use full library names in the table
-      const scenarioHeaders = ['Library', 'Memory (KB)'];
-      const scenarioPaddings = [14, 18]; // Adjust padding if needed for longer names
-      const scenarioAlignments = ['left', 'right'];
-
-      for (const libKey of currentLibsToRun) { // libKey is now full name
-        if (!currentLibraries[libKey]) { // Check if library is available
-            allResults[scenarioKey][libKey] = { total: null };
-            scenarioRows.push([libKey, null]); // Add row with null result
-            continue;
-        }
-
-        const libInfo = { create: currentLibraries[libKey].create, name: libKey }; // libKey is the full name
-        let result;
-        if (scenarioKey === '1_basic') result = scenario.run(libKey, scenario.count); // Pass full name
-        else if (scenarioKey === '2_with_handlers') result = scenario.run(libInfo, scenario.handlerCount);
-        else if (scenarioKey === '3_concentrated') result = scenario.run(libInfo, scenario.eventCount, scenario.instanceCount);
-        else if (scenarioKey === '4_distributed') result = scenario.run(libInfo, scenario.instanceCount);
-
-        allResults[scenarioKey][libKey] = result;
-
-        // Prepare row for individual table
-        let displayValue = null;
-        if (result && typeof result.total === 'number') {
-            if (scenarioKey === '1_basic') {
-                displayValue = result.total / scenario.count; // Per instance
-            } else {
-                displayValue = result.total; // Total
-            }
-        }
-        scenarioRows.push([libKey, displayValue]); // Use full name (libKey)
+    for (const libKey of currentLibsToRun) {
+      // libKey is now full name
+      if (!currentLibraries[libKey]) {
+        // Check if library is available
+        allResults[scenarioKey][libKey] = { total: null };
+        scenarioRows.push([libKey, null]); // Add row with null result
+        continue;
       }
 
-       // Find best value for the individual table
-       const bestIndividualValue = findBestValue(scenarioRows, 1, true); // Check second column (index 1)
+      const libInfo = { create: currentLibraries[libKey].create, name: libKey }; // libKey is the full name
+      let result;
+      if (scenarioKey === '1_basic')
+        result = scenario.run(libKey, scenario.count); // Pass full name
+      else if (scenarioKey === '2_with_handlers') result = scenario.run(libInfo, scenario.handlerCount);
+      else if (scenarioKey === '3_concentrated')
+        result = scenario.run(libInfo, scenario.eventCount, scenario.instanceCount);
+      else if (scenarioKey === '4_distributed') result = scenario.run(libInfo, scenario.instanceCount);
 
-       // Formatters for individual table
-       const individualFormatters = [
-           (v) => String(v),
-           createBestValueFormatter(formatMemory, bestIndividualValue) // Use formatMemory, highlight best
-       ];
+      allResults[scenarioKey][libKey] = result;
 
-       // Display individual table
-       console.log(generateTable({
-           headers: scenarioHeaders,
-           rows: scenarioRows,
-           formatters: individualFormatters,
-           paddings: scenarioPaddings,
-           alignments: scenarioAlignments,
-       }));
+      // Prepare row for individual table
+      let displayValue = null;
+      if (result && typeof result.total === 'number') {
+        if (scenarioKey === '1_basic') {
+          displayValue = result.total / scenario.count; // Per instance
+        } else {
+          displayValue = result.total; // Total
+        }
+      }
+      scenarioRows.push([libKey, displayValue]); // Use full name (libKey)
     }
 
-    // --- Summary Table ---
-    console.log('\n===== Memory Usage Summary =====');
+    // Find best value for the individual table
+    const bestIndividualValue = findBestValue(scenarioRows, 1, true); // Check second column (index 1)
 
-    const summaryHeaders = [
-      'Library',
-      'Per Instance (KB)', // Scenario 1
-      `With ${formatNumber(scenarios['2_with_handlers'].handlerCount)} Handlers (KB)`, // Scenario 2
-      `${formatNumber(scenarios['3_concentrated'].eventCount)} Events × ${formatNumber(scenarios['3_concentrated'].instanceCount)} Instances (KB)`, // Scenario 3
-      `${formatNumber(scenarios['4_distributed'].instanceCount)} Instances (Total KB)`, // Scenario 4
+    // Formatters for individual table
+    const individualFormatters = [
+      (v) => String(v),
+      createBestValueFormatter(formatMemory, bestIndividualValue), // Use formatMemory, highlight best
     ];
 
-    const summaryRows = [];
-    // Adjust padding for potentially longer library names
-    const summaryPaddings = [14, 18, 25, 35, 30];
-    const summaryAlignments = ['left', 'right', 'right', 'right', 'right'];
-
-    const getResult = (scenarioKey, libKey) => allResults[scenarioKey]?.[libKey] || { total: null };
-
-    for (const libKey of currentLibsToRun) { // libKey is now full name
-      const rowData = [
-        libKey, // Use full name
-        getResult('1_basic', libKey),
-        getResult('2_with_handlers', libKey),
-        getResult('3_concentrated', libKey),
-        getResult('4_distributed', libKey),
-      ];
-      summaryRows.push(rowData);
-    }
-
-    // Find best values for each column (lower is better)
-    const bestValues = summaryHeaders.slice(1).map((header, index) => {
-      const colIndex = index + 1;
-      // Accessor logic based on column index
-      const accessor = (cell) => {
-          if (!cell) return null;
-          if (index === 0) return cell.total / scenarios['1_basic'].count; // Per instance for Scenario 1
-          return cell.total; // Total for Scenarios 2, 3, 4
-      };
-      return findBestValue(summaryRows, colIndex, true, accessor);
-    });
-
-    // Create formatters for summary table (without CV)
-    const summaryFormatters = [
-        (v) => String(v), // Library name
-        ...summaryHeaders.slice(1).map((header, index) => {
-            const bestVal = bestValues[index];
-            let baseFormatter;
-            let valueAccessor;
-
-            if (index === 0) { // Scenario 1: Per Instance
-                baseFormatter = (cell) => {
-                    if (cell && typeof cell.total === 'number') {
-                        return formatMemory(cell.total / scenarios['1_basic'].count);
-                    }
-                    return '-';
-                };
-                valueAccessor = (cell) => cell ? cell.total / scenarios['1_basic'].count : null;
-            } else { // Scenarios 2, 3, 4: Total
-                baseFormatter = (cell) => {
-                    if (cell && typeof cell.total === 'number') {
-                        return formatMemory(cell.total);
-                    }
-                    return '-';
-                };
-                valueAccessor = (cell) => cell?.total;
-            }
-            return createBestValueFormatter(baseFormatter, bestVal, valueAccessor);
-        }),
-    ];
-
-
+    // Display individual table
     console.log(
       generateTable({
-        headers: summaryHeaders,
-        rows: summaryRows,
-        formatters: summaryFormatters,
-        paddings: summaryPaddings,
-        alignments: summaryAlignments,
+        headers: scenarioHeaders,
+        rows: scenarioRows,
+        formatters: individualFormatters,
+        paddings: scenarioPaddings,
+        alignments: scenarioAlignments,
       }),
     );
+  }
+
+  // --- Summary Table ---
+  console.log('\n===== Memory Usage Summary =====');
+
+  const summaryHeaders = [
+    'Library',
+    'Per Instance (KB)', // Scenario 1
+    `With ${formatNumber(scenarios['2_with_handlers'].handlerCount)} Handlers (KB)`, // Scenario 2
+    `${formatNumber(scenarios['3_concentrated'].eventCount)} Events × ${formatNumber(scenarios['3_concentrated'].instanceCount)} Instances (KB)`, // Scenario 3
+    `${formatNumber(scenarios['4_distributed'].instanceCount)} Instances (Total KB)`, // Scenario 4
+  ];
+
+  const summaryRows = [];
+  // Adjust padding for potentially longer library names
+  const summaryPaddings = [14, 18, 25, 35, 30];
+  const summaryAlignments = ['left', 'right', 'right', 'right', 'right'];
+
+  const getResult = (scenarioKey, libKey) => allResults[scenarioKey]?.[libKey] || { total: null };
+
+  for (const libKey of currentLibsToRun) {
+    // libKey is now full name
+    const rowData = [
+      libKey, // Use full name
+      getResult('1_basic', libKey),
+      getResult('2_with_handlers', libKey),
+      getResult('3_concentrated', libKey),
+      getResult('4_distributed', libKey),
+    ];
+    summaryRows.push(rowData);
+  }
+
+  // Find best values for each column (lower is better)
+  const bestValues = summaryHeaders.slice(1).map((header, index) => {
+    const colIndex = index + 1;
+    // Accessor logic based on column index
+    const accessor = (cell) => {
+      if (!cell) return null;
+      if (index === 0) return cell.total / scenarios['1_basic'].count; // Per instance for Scenario 1
+      return cell.total; // Total for Scenarios 2, 3, 4
+    };
+    return findBestValue(summaryRows, colIndex, true, accessor);
+  });
+
+  // Create formatters for summary table (without CV)
+  const summaryFormatters = [
+    (v) => String(v), // Library name
+    ...summaryHeaders.slice(1).map((header, index) => {
+      const bestVal = bestValues[index];
+      let baseFormatter;
+      let valueAccessor;
+
+      if (index === 0) {
+        // Scenario 1: Per Instance
+        baseFormatter = (cell) => {
+          if (cell && typeof cell.total === 'number') {
+            return formatMemory(cell.total / scenarios['1_basic'].count);
+          }
+          return '-';
+        };
+        valueAccessor = (cell) => (cell ? cell.total / scenarios['1_basic'].count : null);
+      } else {
+        // Scenarios 2, 3, 4: Total
+        baseFormatter = (cell) => {
+          if (cell && typeof cell.total === 'number') {
+            return formatMemory(cell.total);
+          }
+          return '-';
+        };
+        valueAccessor = (cell) => cell?.total;
+      }
+      return createBestValueFormatter(baseFormatter, bestVal, valueAccessor);
+    }),
+  ];
+
+  console.log(
+    generateTable({
+      headers: summaryHeaders,
+      rows: summaryRows,
+      formatters: summaryFormatters,
+      paddings: summaryPaddings,
+      alignments: summaryAlignments,
+    }),
+  );
 }
 
 // Execute the main async function
-main().catch(err => {
-    console.error("Benchmark failed:", err);
-    process.exit(1);
+main().catch((err) => {
+  console.error('Benchmark failed:', err);
+  process.exit(1);
 });
