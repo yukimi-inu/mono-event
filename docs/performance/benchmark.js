@@ -1,4 +1,4 @@
-import { formatNumber, formatResult, formatMemory, generateTable } from './utils.js'; // Removed generateBenchmarkTable
+import { formatNumber, formatResult, formatMemory, generateTable, findBestValue, createBestValueFormatter } from './utils.js'; // Removed generateBenchmarkTable
 import { runInitializationBenchmark } from './scenarios/initialization.js';
 import { runRegisterSingleBenchmark } from './scenarios/registerSingle.js';
 import { runRegisterMultiBenchmark } from './scenarios/registerMulti.js';
