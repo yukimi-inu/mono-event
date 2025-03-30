@@ -24,11 +24,11 @@ const runAll = runOnly.size === 0;
 
 // Benchmark Configuration Constants
 const ITERATIONS = 500000;
-const REGISTER_ITERATIONS = 50000;
+const REGISTER_ITERATIONS = 100000;
 const LISTENER_COUNT = 500;
 const REMOVAL_ITERATIONS = 10000;
 const REGISTER_MULTI_INSTANCE_COUNT = 5000;
-const LISTENERS_PER_MULTI_INSTANCE = 10;
+const LISTENERS_PER_MULTI_INSTANCE = 50;
 const MEMORY_INSTANCE_COUNT = 10000;
 const MEMORY_LISTENERS = 100;
 const MEMORY_INSTANCE_COUNT_WITH_LISTENERS = 1000;
@@ -61,7 +61,7 @@ const memoryColumns = (key = 'memory') => [
 
 // Benchmark Runners
 const benchmarkRunners = {
-  1: { name: 'Initialization', runner: () => runInitializationBenchmark({ ITERATIONS }), columns: timeColumns() },
+  1: { name: 'Initialization', runner: () => runInitializationBenchmark({ ITERATIONS: ITERATIONS * 10  }), columns: timeColumns() },
   2: {
     name: 'Register (Single Instance)',
     runner: () => runRegisterSingleBenchmark({ REGISTER_ITERATIONS }),
