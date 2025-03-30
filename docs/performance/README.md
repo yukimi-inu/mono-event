@@ -38,7 +38,7 @@ npm run build
 node docs/performance/run-benchmark.js
 ```
 
-> **Note**: Benchmark results are maintained in the `docs/performance/RESULTS.md` file.
+> **Note**: Benchmark results are maintained in the main `README.md` file at the project root.
 
 ## Benchmark Files
 

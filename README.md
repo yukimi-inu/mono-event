@@ -321,15 +321,15 @@ The latest benchmark results are as follows:
 
 ### Memory Usage Summary (Node.js)
 
-| Library        |       Per Instance |   With 10,000 Handlers |   1,000 Events × 100 Instances |  1,000,000 Instances (Total) | Bundle Size | Gzipped Size |
-|:---------------|-------------------:|-----------------------:|-------------------------------:|-----------------------------:|------------:|-------------:|
-| mono           | 0.08 (CV: 56475.9%) |   1,860.77 (CV: 93.3%) |                              - |        294,870.13 (CV: 0.2%) |     4.08 KB |      1.05 KB |
-| ee3            | 0.09 (CV: 30828.8%) |       747.9 (CV: 1.8%) |            5,064.6 (CV: 10.3%) |        **169,450.31 (CV: 0.6%)** |     8.93 KB |      2.28 KB |
-| mitt           | 0.3 (CV: 72835.9%) |      255.15 (CV: 4.9%) |           3,161.22 (CV: 11.1%) |        536,693.71 (CV: 0.0%) |     **349 B** |      **218 B** |
-| nano           | 0.24 (CV: 10214.8%) |    1,371.45 (CV: 1.6%) |           19,384.36 (CV: 0.4%) |         415,081.7 (CV: 0.1%) |       422 B |        227 B |
-| rxjs           | 0.13 (CV: 20330.3%) |    6,334.89 (CV: 0.1%) |           72,277.86 (CV: 0.1%) |        775,161.29 (CV: 0.0%) |    34.31 KB |      4.34 KB |
-| nodeEvents     | **0.08 (CV: 217779.2%)** |      **266.69 (CV: 6.2%)** |                   **0 (CV: 0.0%)** |        267,999.14 (CV: 0.1%) |         N/A |          N/A |
-| eventTarget    |                 N/A |                      N/A |                              N/A |                          N/A |         N/A |          N/A |
+| Library        |  Per Instance (KB) | With 10,000 Handlers (KB) |   1,000 Events × 100 Instances (KB) | 1,000,000 Instances (Total KB) |
+|:---------------|-------------------:|--------------------------:|------------------------------------:|-------------------------------:|
+| mono-event     |               0.09 |                  2,461.63 |                                   - |                     279,654.78 |
+| EventEmitter3  |               0.09 |                    746.95 |                            4,376.42 |                     **162,788.71** |
+| mitt           |               0.29 |                    **254.66** |                            2,287.19 |                     526,686.86 |
+| nanoevents     |               0.24 |                   1,344.7 |                           15,854.79 |                     401,915.58 |
+| RxJS           |               0.13 |                  6,340.63 |                           71,008.05 |                     765,941.68 |
+| Node Events    |               **0.05** |                    279.98 |                                   **0** |                        247,240 |
+| EventTarget    |                0.2 |                  1,044.61 |                                   - |                     535,361.14 |
 
 *Note: `nodeEvents` and `eventTarget` results are only available in Node.js environment. Bundle size for Node.js built-ins is N/A.*
 *CV: Coefficient of Variation (lower is better, indicates stability).*
