@@ -401,6 +401,20 @@ const restrictedAsyncEmitMethods = {
   },
 };
 
+// --- Emitter Function ---
+/**
+ * Creates an emitter function for an event
+ * This function is cached and the same reference is returned each time
+ * @param instance The event instance
+ * @returns A function that calls emit() with the provided argument
+ */
+export function createEmitter<T, E extends { emit(args: T): unknown }>(instance: E): (args: T) => void {
+  // Create a function that calls emit() with the provided argument
+  return function emitter(args: T): void {
+    instance.emit(args);
+  };
+}
+
 // --- Prototypes ---
 export const monoProto = Object.create(null);
 Object.assign(monoProto, baseEventMethods, syncEmitMethods);

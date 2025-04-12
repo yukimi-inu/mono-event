@@ -9,7 +9,7 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # リリース作成に必要な権限
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

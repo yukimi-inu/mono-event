@@ -140,7 +140,7 @@ describe('mono', () => {
     });
 
     it('should handle errors in handlers without affecting other handlers', () => {
-      // continueOnError: true と logErrors: true オプションを指定
+      // Specify continueOnError: true and logErrors: true options
       const event = mono<string>({ continueOnError: true, logErrors: true });
       const errorHandler = vi.fn().mockImplementation(() => {
         throw new Error('Handler error');
@@ -185,6 +185,59 @@ describe('mono', () => {
       expect(handler1).toHaveBeenCalledTimes(1); // Not called for 'second'
       expect(handler2).toHaveBeenCalledTimes(2);
       expect(handler3).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('emitter', () => {
+    it('should provide an emitter function that calls emit with the provided argument', () => {
+      const event = mono<string>();
+      const handler = vi.fn();
+      
+      event.add(handler);
+      
+      // Fire event using emitter
+      event.emitter('test');
+      
+      expect(handler).toHaveBeenCalledWith('test');
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+    
+    it('should return the same function reference each time', () => {
+      const event = mono<string>();
+      
+      // Verify that the same function reference is returned even when accessed multiple times
+      const emitter1 = event.emitter;
+      const emitter2 = event.emitter;
+      
+      expect(emitter1).toBe(emitter2);
+    });
+    
+    it('should work with DOM-like event listeners', () => {
+      const event = mono<{ type: string, data: string }>();
+      const handler = vi.fn();
+      
+      event.add(handler);
+      
+      // Use like a DOM event listener
+      const mockElement = {
+        addEventListener(type: string, listener: (e: any) => void) {
+          if (type === 'custom') {
+            listener({ type: 'custom', data: 'test data' });
+          }
+        }
+      };
+      
+      // Spy on addEventListener call
+      const addEventListenerSpy = vi.spyOn(mockElement, 'addEventListener');
+      
+      // Register emitter as an event listener
+      mockElement.addEventListener('custom', event.emitter);
+      
+      // Verify that addEventListener was called correctly
+      expect(addEventListenerSpy).toHaveBeenCalledWith('custom', event.emitter);
+      
+      // Verify that the handler was called correctly
+      expect(handler).toHaveBeenCalledWith({ type: 'custom', data: 'test data' });
     });
   });
 });

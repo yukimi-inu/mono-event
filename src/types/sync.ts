@@ -55,6 +55,20 @@ export interface MonoEvent<T> {
    * @param args The event arguments
    */
   emit(args: T): void;
+
+  /**
+   * A function that can be used directly with event listeners
+   * This emitter function will call emit() with the provided argument
+   * The same function reference is returned each time, allowing for easy
+   * registration and removal of event listeners
+   *
+   * @example
+   * const keydownEvent = mono<KeyboardEvent>();
+   * window.addEventListener('keydown', keydownEvent.emitter);
+   * // Later, to remove:
+   * window.removeEventListener('keydown', keydownEvent.emitter);
+   */
+  readonly emitter: (args: T) => void;
 }
 
 /**
