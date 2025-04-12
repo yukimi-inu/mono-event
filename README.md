@@ -24,6 +24,8 @@ intuitive.
   Register listeners with or without a caller context, and use the `once` option for one-time event handling.
 - **Comprehensive Listener Management**
   Remove listeners by reference, by caller context, or remove all listeners at once.
+- **Direct Event Emitter Integration**
+  Use the `.emitter` property to easily integrate with existing event systems like DOM events.
 
 ## Installation
 
@@ -96,6 +98,13 @@ event.remove(handler, handler.handleEvent);
 
 // Remove all listeners
 event.removeAll();
+
+// Using the emitter property with DOM events
+const keydownEvent = mono<KeyboardEvent>();
+window.addEventListener('keydown', keydownEvent.emitter);
+
+// Later, to remove:
+window.removeEventListener('keydown', keydownEvent.emitter);
 ```
 
 ### 2. Asynchronous Event (monoAsync)
@@ -238,6 +247,7 @@ setTimeout(() => event.emit('C'), 100);
     - `remove(caller: object, handler: (args: T) => void): boolean`
     - `removeAll(): void`
     - `emit(args: T): void`
+    - `emitter: (args: T) => void` - A function property that calls emit with the provided argument. Useful for integrating with existing event systems.
 
 ### `monoAsync<T>(options?: { parallel?: boolean })`
 
@@ -250,6 +260,7 @@ setTimeout(() => event.emit('C'), 100);
     - `remove(caller: object, handler: (args: T) => Promise<void> | void): boolean`
     - `removeAll(): void`
     - `emit(args: T): Promise<void>`
+    - `emitter: (args: T) => void` - A function property that calls emit with the provided argument. Useful for integrating with existing event systems.
 
 ### `monoRestrict<T>()`
 

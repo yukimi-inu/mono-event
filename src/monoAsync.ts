@@ -4,7 +4,7 @@
 
 import type { AsyncEventOptions, EmitterOptions } from './types';
 import type { MonoAsyncEvent } from './types/async';
-import { monoAsyncProto } from './utils';
+import { createEmitter, monoAsyncProto } from './utils';
 
 /**
  * Creates a new asynchronous event
@@ -22,6 +22,18 @@ export function monoAsync<T>(options: AsyncEventOptions & EmitterOptions = {}): 
   instance.parallel = parallel;
   instance.continueOnError = continueOnError;
   instance.logErrors = logErrors;
+
+  // Define emitter property with getter for lazy initialization
+  Object.defineProperty(instance, 'emitter', {
+    get: function() {
+      if (!this._emitterCache) {
+        this._emitterCache = createEmitter<T, MonoAsyncEvent<T>>(this);
+      }
+      return this._emitterCache;
+    },
+    enumerable: true,
+    configurable: false
+  });
 
   return instance as MonoAsyncEvent<T>;
 }
