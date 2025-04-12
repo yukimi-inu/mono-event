@@ -221,4 +221,65 @@ describe('monoAsync', () => {
       expect(sequence).toEqual([2, 1]);
     });
   });
+
+  describe('emitter', () => {
+    it('should provide an emitter function that calls emit with the provided argument', async () => {
+      const event = monoAsync<string>();
+      const handler = vi.fn();
+      
+      event.add(handler);
+      
+      // Fire event using emitter
+      // Note: emitter is a synchronous function, but since it calls emit() internally,
+      // the handlers are executed asynchronously
+      event.emitter('test');
+      
+      // Wait for asynchronous processing to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      expect(handler).toHaveBeenCalledWith('test');
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+    
+    it('should return the same function reference each time', () => {
+      const event = monoAsync<string>();
+      
+      // Verify that the same function reference is returned even when accessed multiple times
+      const emitter1 = event.emitter;
+      const emitter2 = event.emitter;
+      
+      expect(emitter1).toBe(emitter2);
+    });
+    
+    it('should work with DOM-like event listeners', async () => {
+      const event = monoAsync<{ type: string, data: string }>();
+      const handler = vi.fn();
+      
+      event.add(handler);
+      
+      // Use like a DOM event listener
+      const mockElement = {
+        addEventListener(type: string, listener: (e: any) => void) {
+          if (type === 'custom') {
+            listener({ type: 'custom', data: 'test data' });
+          }
+        }
+      };
+      
+      // Spy on addEventListener call
+      const addEventListenerSpy = vi.spyOn(mockElement, 'addEventListener');
+      
+      // Register emitter as an event listener
+      mockElement.addEventListener('custom', event.emitter);
+      
+      // Wait for asynchronous processing to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Verify that addEventListener was called correctly
+      expect(addEventListenerSpy).toHaveBeenCalledWith('custom', event.emitter);
+      
+      // Verify that the handler was called correctly
+      expect(handler).toHaveBeenCalledWith({ type: 'custom', data: 'test data' });
+    });
+  });
 });
